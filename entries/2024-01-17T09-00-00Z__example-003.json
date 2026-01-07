@@ -1,0 +1,33 @@
+{
+  "id": "example-003",
+  "timestamp": "2024-01-17T09:00:00Z",
+  "device": "laptop",
+  "emotion": "calm",
+  "energy": 6,
+  "showed_up": true,
+  "habits": {
+    "exercise": true,
+    "deep_work": false,
+    "sleep_on_time": true
+  },
+  "goals": [
+    "career",
+    "health",
+    "relationships"
+  ],
+  "free_text": "Morning meditation helped. Feeling more balanced today.",
+  "long_reflection": "After yesterday's low, I made a point to meditate this morning. It's interesting how a small change in routine can shift everything. I showed up even though I didn't feel like it initially, and that made a difference.",
+  "derived": {
+    "sentiment": {
+      "polarity": 0.4,
+      "subjectivity": 0.6
+    },
+    "themes": [
+      "growth",
+      "health"
+    ],
+    "flags": [],
+    "summary": "Felt calm energy level 6/10 showed up despite challenges - Morning meditation helped. Feeling more balanced today."
+  }
+}
+

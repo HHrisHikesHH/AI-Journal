@@ -1,0 +1,35 @@
+{
+  "id": "example-002",
+  "timestamp": "2024-01-16T20:15:00Z",
+  "device": "laptop",
+  "emotion": "tired",
+  "energy": 3,
+  "showed_up": false,
+  "habits": {
+    "exercise": false,
+    "deep_work": false,
+    "sleep_on_time": false
+  },
+  "goals": [
+    "health"
+  ],
+  "free_text": "Exhausted after long day. Skipped workout, procrastinated on important task.",
+  "long_reflection": "I'm noticing a pattern - when I'm tired, I avoid the things that would actually help me feel better. The workout would have given me energy, but I talked myself out of it. Need to remember this feeling next time.",
+  "derived": {
+    "sentiment": {
+      "polarity": -0.3,
+      "subjectivity": 0.8
+    },
+    "themes": [
+      "stress",
+      "health"
+    ],
+    "flags": [
+      "low_energy",
+      "evening_procrastination",
+      "consistency_concern"
+    ],
+    "summary": "Felt tired energy level 3/10 struggled to show up - Exhausted after long day. Skipped workout, procrastinated on..."
+  }
+}
+

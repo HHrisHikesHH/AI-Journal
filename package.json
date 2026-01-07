@@ -1,0 +1,14 @@
+{
+  "name": "personal-rag-journal",
+  "version": "1.0.0",
+  "description": "Personal RAG Journaling & Coaching App",
+  "scripts": {
+    "start": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "install-frontend": "cd frontend && npm install"
+  },
+  "keywords": ["journal", "rag", "coaching"],
+  "author": "",
+  "license": "MIT"
+}
+

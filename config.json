@@ -1,0 +1,38 @@
+{
+  "user": {
+    "identity": "A thoughtful person seeking emotional clarity, discipline, and clear thinking",
+    "goals": ["career", "health", "relationships"],
+    "primary_purpose": "Emotional clarity, Discipline & consistency, Clear thinking",
+    "time_horizon": "All, but weekly is primary"
+  },
+  "models": {
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "llm_model_path": "local/models/llama-3-8b-instruct.gguf",
+    "llm_model_type": "llama",
+    "llm_max_tokens": 512,
+    "llm_temperature": 0.2
+  },
+  "habits": {
+    "exercise": "Physical activity or movement",
+    "deep_work": "Focused work session",
+    "sleep_on_time": "Went to bed at planned time"
+  },
+  "emotions": [
+    "content",
+    "anxious",
+    "sad",
+    "angry",
+    "motivated",
+    "tired",
+    "calm",
+    "stressed"
+  ],
+  "reflection_questions": [
+    "What drains my energy?",
+    "Am I avoiding something important?",
+    "Am I lying to myself?",
+    "What patterns repeat before burnout?",
+    "Am I moving closer to my long-term goals?"
+  ]
+}
+
