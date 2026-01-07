@@ -71,31 +71,31 @@ function HistoryView({ entries, onRefresh }) {
   return (
     <div>
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2>History</h2>
-          <div>
-            <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
+          <h2>Your Journey</h2>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} style={{ padding: '10px 16px', minWidth: '140px' }}>
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>
             </select>
-            <button onClick={onRefresh} style={{ marginLeft: '10px' }}>Refresh</button>
+            <button onClick={onRefresh}>Refresh</button>
           </div>
         </div>
 
         <div className="visualization">
-          <h3>Discipline Trend</h3>
+          <h3>Consistency Over Time</h3>
           <LineChart width={800} height={300} data={disciplineData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="date" tickFormatter={(d) => format(parseISO(d), 'MM/dd')} />
             <YAxis />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="rate" stroke="#3498db" name="Show Up Rate %" />
+            <Line type="monotone" dataKey="rate" stroke="#5f735f" name="Show Up Rate %" strokeWidth={2} />
           </LineChart>
         </div>
 
         <div className="visualization">
-          <h3>Habit Streaks</h3>
+          <h3>Practice Streaks</h3>
           <div className="streak-item">
             <span>Exercise</span>
             <span className="streak-count">{habitStreaks.exercise} days</span>
@@ -118,15 +118,15 @@ function HistoryView({ entries, onRefresh }) {
               <XAxis dataKey="goal" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#27ae60" />
+              <Bar dataKey="count" fill="#5f735f" />
             </BarChart>
           ) : (
-            <p>No goal data available</p>
+            <p style={{ color: 'var(--sage-500)', fontStyle: 'italic', fontWeight: 300, textAlign: 'center', padding: '20px' }}>No goal data available</p>
           )}
         </div>
 
-        <div style={{ marginTop: '30px' }}>
-          <h3>Recent Entries</h3>
+        <div style={{ marginTop: '40px' }}>
+          <h3>Recent Reflections</h3>
           <div className="entry-list">
             {filteredEntries.slice(0, 10).map(entry => (
               <div key={entry.id} className="entry-item">
@@ -135,7 +135,7 @@ function HistoryView({ entries, onRefresh }) {
                 </div>
                 <span className="entry-emotion">{entry.emotion}</span>
                 <span className="entry-emotion">Energy: {entry.energy}/10</span>
-                {entry.showed_up && <span className="entry-emotion" style={{ backgroundColor: '#27ae60', color: 'white' }}>Showed Up</span>}
+                {entry.showed_up && <span className="entry-emotion" style={{ backgroundColor: 'var(--sage-600)', color: 'white' }}>Showed Up</span>}
                 {entry.free_text && (
                   <div className="entry-text">{entry.free_text}</div>
                 )}

@@ -7,7 +7,7 @@ const EMOTIONS = [
   'content', 'anxious', 'sad', 'angry', 'motivated', 'tired', 'calm', 'stressed'
 ];
 
-const HABITS = ['exercise', 'deep_work', 'sleep_on_time'];
+const HABITS = ['exercise', 'deep_work', 'meditation', 'reading', 'writing', 'wake_up_on_time', 'sleep_on_time'];
 
 function EntryForm({ onEntryCreated }) {
   const [emotion, setEmotion] = useState('');
@@ -79,13 +79,13 @@ function EntryForm({ onEntryCreated }) {
 
   return (
     <div className="card">
-      <h2>Daily Entry</h2>
+      <h2>Today's Reflection</h2>
       
       {error && <div className="error">{error}</div>}
       
       <form onSubmit={handleSubmit}>
         <div>
-          <label>How are you feeling? *</label>
+          <label>How are you feeling in this moment? *</label>
           <div className="emotion-grid">
             {EMOTIONS.map(emo => (
               <button
@@ -100,7 +100,7 @@ function EntryForm({ onEntryCreated }) {
           </div>
         </div>
 
-        <div style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: '28px' }}>
           <label>
             Energy Level: {energy}/10
           </label>
@@ -114,7 +114,7 @@ function EntryForm({ onEntryCreated }) {
           />
         </div>
 
-        <div style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: '28px' }}>
           <div className="toggle-item">
             <input
               type="checkbox"
@@ -128,8 +128,8 @@ function EntryForm({ onEntryCreated }) {
           </div>
         </div>
 
-        <div style={{ marginTop: '20px' }}>
-          <label>Habits</label>
+        <div style={{ marginTop: '28px' }}>
+          <label>Habits & Practices</label>
           <div className="toggle-group">
             {HABITS.map(habit => (
               <div key={habit} className="toggle-item">
@@ -147,9 +147,9 @@ function EntryForm({ onEntryCreated }) {
           </div>
         </div>
 
-        <div style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: '28px' }}>
           <label>
-            Quick note (max 200 chars) *
+            A few words about today (max 200 chars) *
           </label>
           <textarea
             value={freeText}
@@ -157,31 +157,31 @@ function EntryForm({ onEntryCreated }) {
             maxLength={200}
             rows={3}
             required
-            placeholder="What's on your mind?"
+            placeholder="What's present for you today?"
           />
           <div className={`char-count ${freeText.length > 180 ? 'warning' : ''}`}>
             {freeText.length}/200
           </div>
         </div>
 
-        <div style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: '28px' }}>
           <label>
-            Longer reflection (optional)
+            Deeper reflection (optional)
           </label>
           <textarea
             value={longReflection}
             onChange={(e) => setLongReflection(e.target.value)}
             rows={6}
-            placeholder="Optional: deeper thoughts, patterns, insights..."
+            placeholder="Take your time... what patterns do you notice? What feels important?"
           />
         </div>
 
         <button
           type="submit"
           disabled={submitting || !emotion || !freeText}
-          style={{ marginTop: '24px', width: '100%' }}
+          style={{ marginTop: '32px', width: '100%', padding: '16px' }}
         >
-          {submitting ? 'Saving...' : 'Save Entry'}
+          {submitting ? 'Saving...' : 'Save Reflection'}
         </button>
       </form>
     </div>

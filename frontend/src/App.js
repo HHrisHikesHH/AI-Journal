@@ -33,26 +33,26 @@ function App() {
   return (
     <div className="App">
       <div className="container">
-        <h1>Personal RAG Journal</h1>
+        <h1>Personal Journal</h1>
         
         <div className="tabs">
           <button
             className={`tab ${activeTab === 'entry' ? 'active' : ''}`}
             onClick={() => setActiveTab('entry')}
           >
-            New Entry
+            Reflect
           </button>
           <button
             className={`tab ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
-            History
+            Insights
           </button>
           <button
             className={`tab ${activeTab === 'query' ? 'active' : ''}`}
             onClick={() => setActiveTab('query')}
           >
-            Ask Coach
+            Guidance
           </button>
         </div>
 

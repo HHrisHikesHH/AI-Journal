@@ -7,7 +7,7 @@
   },
   "models": {
     "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-    "llm_model_path": "local/models/llama-3-8b-instruct.gguf",
+    "llm_model_path": "local/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
     "llm_model_type": "llama",
     "llm_max_tokens": 512,
     "llm_temperature": 0.2
@@ -15,18 +15,13 @@
   "habits": {
     "exercise": "Physical activity or movement",
     "deep_work": "Focused work session",
+    "meditation": "Daily meditation practice",
+    "reading": "Read for 30 minutes",
+    "writing": "Wrote for 30 minutes",
+    "wake_up_on_time": "Went to bed at planned time",
     "sleep_on_time": "Went to bed at planned time"
   },
-  "emotions": [
-    "content",
-    "anxious",
-    "sad",
-    "angry",
-    "motivated",
-    "tired",
-    "calm",
-    "stressed"
-  ],
+  "emotions": ["content", "anxious", "sad", "angry", "motivated", "tired", "calm", "stressed", "grateful", "frustrated"],
   "reflection_questions": [
     "What drains my energy?",
     "Am I avoiding something important?",
