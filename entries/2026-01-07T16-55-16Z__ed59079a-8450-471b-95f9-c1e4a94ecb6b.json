@@ -1,0 +1,25 @@
+{
+  "id": "ed59079a-8450-471b-95f9-c1e4a94ecb6b",
+  "timestamp": "2026-01-07T16:55:16.569575",
+  "device": "htadmin",
+  "emotion": "content",
+  "energy": 5,
+  "showed_up": false,
+  "habits": {
+    "exercise": false,
+    "deep_work": false,
+    "sleep_on_time": false
+  },
+  "goals": [],
+  "free_text": "cxxcxzc",
+  "long_reflection": "xcxzcxzc",
+  "derived": {
+    "sentiment": {
+      "polarity": 0.0,
+      "subjectivity": 0.0
+    },
+    "themes": [],
+    "flags": [],
+    "summary": "Felt content energy level 5/10 struggled to show up - cxxcxzc..."
+  }
+}

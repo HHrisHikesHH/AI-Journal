@@ -1,0 +1,25 @@
+{
+  "id": "bdd6283f-5a3c-49c5-9c86-3e9411b5a03a",
+  "timestamp": "2026-01-07T16:53:04.435298",
+  "device": "htadmin",
+  "emotion": "tired",
+  "energy": 5,
+  "showed_up": false,
+  "habits": {
+    "exercise": false,
+    "deep_work": false,
+    "sleep_on_time": false
+  },
+  "goals": [],
+  "free_text": "did not went as planned.",
+  "long_reflection": "",
+  "derived": {
+    "sentiment": {
+      "polarity": 0.0,
+      "subjectivity": 0.0
+    },
+    "themes": [],
+    "flags": [],
+    "summary": "Felt tired energy level 5/10 struggled to show up - did not went as planned...."
+  }
+}

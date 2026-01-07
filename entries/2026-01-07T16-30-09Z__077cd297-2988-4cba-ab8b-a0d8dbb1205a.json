@@ -1,0 +1,32 @@
+{
+  "id": "077cd297-2988-4cba-ab8b-a0d8dbb1205a",
+  "timestamp": "2026-01-07T16:30:09.657524",
+  "device": "htadmin",
+  "emotion": "content",
+  "energy": 7,
+  "showed_up": true,
+  "habits": {
+    "exercise": true,
+    "deep_work": false,
+    "meditation": true,
+    "reading": false,
+    "writing": false,
+    "wake_up_on_time": true,
+    "sleep_on_time": true
+  },
+  "goals": [
+    "career",
+    "health"
+  ],
+  "free_text": "Testing the API - feeling good today",
+  "long_reflection": "",
+  "derived": {
+    "sentiment": {
+      "polarity": 0.7,
+      "subjectivity": 0.6000000000000001
+    },
+    "themes": [],
+    "flags": [],
+    "summary": "Felt content energy level 7/10 showed up despite challenges - Testing the API - feeling good today..."
+  }
+}
