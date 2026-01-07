@@ -3,26 +3,46 @@ import axios from 'axios';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 
-const EMOTIONS = [
-  'content', 'anxious', 'sad', 'angry', 'motivated', 'tired', 'calm', 'stressed'
-];
-
-const HABITS = ['exercise', 'deep_work', 'meditation', 'reading', 'writing', 'wake_up_on_time', 'sleep_on_time'];
-
 function EntryForm({ onEntryCreated }) {
+  const [emotions, setEmotions] = useState([]);
+  const [habitsList, setHabitsList] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [configLoading, setConfigLoading] = useState(true);
+  
   const [emotion, setEmotion] = useState('');
   const [energy, setEnergy] = useState(5);
   const [showedUp, setShowedUp] = useState(false);
-  const [habits, setHabits] = useState({
-    exercise: false,
-    deep_work: false,
-    sleep_on_time: false
-  });
+  const [habits, setHabits] = useState({});
   const [freeText, setFreeText] = useState('');
   const [longReflection, setLongReflection] = useState('');
-  const [goals, setGoals] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Fetch config from backend
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/config/`);
+        const config = response.data;
+        setEmotions(config.emotions || []);
+        setHabitsList(config.habits || []);
+        setGoals(config.goals || []);
+        
+        // Initialize habits state with all habits from config
+        const initialHabits = {};
+        config.habits?.forEach(habit => {
+          initialHabits[habit] = false;
+        });
+        setHabits(initialHabits);
+        
+        setConfigLoading(false);
+      } catch (err) {
+        console.error('Error loading config:', err);
+        setConfigLoading(false);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const handleHabitChange = (habit) => {
     setHabits(prev => ({
@@ -64,7 +84,11 @@ function EntryForm({ onEntryCreated }) {
       setEmotion('');
       setEnergy(5);
       setShowedUp(false);
-      setHabits({ exercise: false, deep_work: false, sleep_on_time: false });
+      const resetHabits = {};
+      habitsList.forEach(habit => {
+        resetHabits[habit] = false;
+      });
+      setHabits(resetHabits);
       setFreeText('');
       setLongReflection('');
       setGoals([]);
@@ -77,6 +101,14 @@ function EntryForm({ onEntryCreated }) {
     }
   };
 
+  if (configLoading) {
+    return (
+      <div className="card">
+        <div className="loading">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="card">
       <h2>Today's Reflection</h2>
@@ -87,7 +119,7 @@ function EntryForm({ onEntryCreated }) {
         <div>
           <label>How are you feeling in this moment? *</label>
           <div className="emotion-grid">
-            {EMOTIONS.map(emo => (
+            {emotions.map(emo => (
               <button
                 key={emo}
                 type="button"
@@ -131,7 +163,7 @@ function EntryForm({ onEntryCreated }) {
         <div style={{ marginTop: '28px' }}>
           <label>Habits & Practices</label>
           <div className="toggle-group">
-            {HABITS.map(habit => (
+            {habitsList.map(habit => (
               <div key={habit} className="toggle-item">
                 <input
                   type="checkbox"

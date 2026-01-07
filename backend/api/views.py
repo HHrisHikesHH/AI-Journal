@@ -110,14 +110,27 @@ def query(request):
         if not query_text:
             return JsonResponse({'error': 'Query is required'}, status=400)
         
-        rag = get_rag_system()
-        result = rag.query(query_text)
-        
-        return JsonResponse(result)
+        try:
+            rag = get_rag_system()
+            result = rag.query(query_text)
+            return JsonResponse(result)
+        except Exception as rag_error:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"RAG query error: {rag_error}")
+            print(f"Traceback: {error_trace}")
+            return JsonResponse({
+                'error': f'Error processing query: {str(rag_error)}',
+                'details': 'The query system encountered an error. Please try again.'
+            }, status=500)
     
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Query endpoint error: {e}")
+        print(f"Traceback: {error_trace}")
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
@@ -129,6 +142,22 @@ def rebuild_index(request):
         rag.rebuild_index()
         return JsonResponse({'status': 'Index rebuilt successfully'})
     
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_http_methods(["GET"])
+def get_config(request):
+    """Get configuration from config.json."""
+    try:
+        with open(settings.CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        # Return only the parts needed by frontend
+        return JsonResponse({
+            'emotions': config.get('emotions', []),
+            'habits': list(config.get('habits', {}).keys()),
+            'reflection_questions': config.get('reflection_questions', []),
+            'goals': config.get('user', {}).get('goals', [])
+        })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 

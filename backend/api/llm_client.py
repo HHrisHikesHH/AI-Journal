@@ -65,12 +65,16 @@ class LLMClient:
         try:
             # Try llama-cpp-python interface
             if hasattr(self.model, 'create_completion'):
-                response = self.model.create_completion(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    stop=["\n\n\n", "User:", "Context:"]
-                )
+                import warnings
+                # Suppress cleanup warnings from llama-cpp-python
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    response = self.model.create_completion(
+                        prompt=prompt,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        stop=["\n\n\n", "User:", "Context:"]
+                    )
                 return response['choices'][0]['text'].strip()
             # Try gpt4all interface
             elif hasattr(self.model, 'generate'):

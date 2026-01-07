@@ -23,6 +23,14 @@ if [ -f "logs/django.pid" ]; then
     rm -f logs/django.pid
 fi
 
+# Also kill any processes on port 8000 (in case PID file was lost)
+if command -v lsof &> /dev/null; then
+    for pid in $(lsof -ti:8000 2>/dev/null); do
+        echo "Stopping process on port 8000 (PID: $pid)..."
+        kill -9 $pid 2>/dev/null || true
+    done
+fi
+
 # Stop React
 if [ -f "logs/react.pid" ]; then
     REACT_PID=$(cat logs/react.pid)
@@ -36,6 +44,14 @@ if [ -f "logs/react.pid" ]; then
         fi
     fi
     rm -f logs/react.pid
+fi
+
+# Also kill any processes on port 3000 (in case PID file was lost)
+if command -v lsof &> /dev/null; then
+    for pid in $(lsof -ti:3000 2>/dev/null); do
+        echo "Stopping process on port 3000 (PID: $pid)..."
+        kill -9 $pid 2>/dev/null || true
+    done
 fi
 
 # Git sync (commit and push)

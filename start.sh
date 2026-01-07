@@ -21,12 +21,26 @@ else
     pip install -r requirements.txt
 fi
 
+# Create logs directory if it doesn't exist
+mkdir -p logs
+
 # Git sync (pull)
 echo "Syncing with git..."
 python3 scripts/git_sync.py --pull || echo "Git pull failed, continuing..."
 
-# Create logs directory if it doesn't exist
-mkdir -p logs
+# Kill any existing processes on ports 8000 and 3000
+echo "Cleaning up any existing processes..."
+if command -v lsof &> /dev/null; then
+    for pid in $(lsof -ti:8000 2>/dev/null); do
+        echo "Killing process on port 8000 (PID: $pid)..."
+        kill -9 $pid 2>/dev/null || true
+    done
+    for pid in $(lsof -ti:3000 2>/dev/null); do
+        echo "Killing process on port 3000 (PID: $pid)..."
+        kill -9 $pid 2>/dev/null || true
+    done
+    sleep 2
+fi
 
 # Rebuild index
 echo "Rebuilding search index..."
@@ -41,6 +55,7 @@ cd ..
 # Start Django backend
 echo "Starting Django backend..."
 cd backend
+# Suppress llama-cpp cleanup warnings
 python3 manage.py runserver 8000 > ../logs/django.log 2>&1 &
 DJANGO_PID=$!
 echo $DJANGO_PID > ../logs/django.pid

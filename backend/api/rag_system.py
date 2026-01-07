@@ -135,15 +135,46 @@ class RAGSystem:
             }
         
         # Embed query
-        query_embedding = self.embedding_model.encode([query_text])
-        query_embedding = np.array(query_embedding).astype('float32')
+        try:
+            query_embedding = self.embedding_model.encode([query_text])
+            query_embedding = np.array(query_embedding).astype('float32')
+        except Exception as e:
+            import traceback
+            print(f"Embedding error: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+            return {
+                'answer': 'Error processing query. Please try again.',
+                'sources': [],
+                'confidence_estimate': 0.0,
+                'error': str(e)
+            }
         
         # Search
-        k = min(k, len(self.entries))
-        distances, indices = self.index.search(query_embedding, k)
-        
-        # Get relevant entries
-        relevant_entries = [self.entries[i] for i in indices[0]]
+        try:
+            k = min(k, len(self.entries))
+            if k == 0:
+                return {
+                    'answer': 'No entries available yet. Please create some journal entries first.',
+                    'sources': [],
+                    'confidence_estimate': 0.0
+                }
+            distances, indices = self.index.search(query_embedding, k)
+            
+            # Get relevant entries with bounds checking
+            relevant_entries = []
+            for idx in indices[0]:
+                if 0 <= idx < len(self.entries):
+                    relevant_entries.append(self.entries[idx])
+        except Exception as e:
+            import traceback
+            print(f"FAISS search error: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+            return {
+                'answer': 'Error searching entries. Please try again.',
+                'sources': [],
+                'confidence_estimate': 0.0,
+                'error': str(e)
+            }
         
         # Build context for LLM
         context_parts = []
@@ -161,16 +192,30 @@ class RAGSystem:
         context = '\n'.join(context_parts)
         
         # Generate answer using LLM
-        config = self._get_config()
-        prompt = self._build_query_prompt(query_text, context, config)
-        
         try:
-            llm_response = self.llm_client.generate(prompt)
-            answer = self._parse_llm_response(llm_response)
+            config = self._get_config()
+            prompt = self._build_query_prompt(query_text, context, config)
+            
+            try:
+                llm_response = self.llm_client.generate(prompt)
+                answer = self._parse_llm_response(llm_response)
+            except Exception as e:
+                import traceback
+                print(f"LLM error: {e}")
+                print(f"LLM traceback: {traceback.format_exc()}")
+                answer = {
+                    'reality_check': 'Unable to generate response at this time.',
+                    'evidence': [],
+                    'action': 'Please try again later.',
+                    'sign_off': 'Take care.'
+                }
         except Exception as e:
-            print(f"LLM error: {e}")
+            import traceback
+            print(f"RAG query processing error: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+            # Return a basic response if there's an error
             answer = {
-                'reality_check': 'Unable to generate response at this time.',
+                'reality_check': 'Unable to process query due to a system error.',
                 'evidence': [],
                 'action': 'Please try again later.',
                 'sign_off': 'Take care.'

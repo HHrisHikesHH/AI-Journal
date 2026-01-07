@@ -1,9 +1,30 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from 'recharts';
 import { format, subDays, parseISO } from 'date-fns';
+import axios from 'axios';
+
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 
 function HistoryView({ entries, onRefresh }) {
   const [timeRange, setTimeRange] = useState('7');
+  const [habitsList, setHabitsList] = useState([]);
+  const [configLoading, setConfigLoading] = useState(true);
+
+  // Fetch config from backend
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/config/`);
+        const config = response.data;
+        setHabitsList(config.habits || []);
+        setConfigLoading(false);
+      } catch (err) {
+        console.error('Error loading config:', err);
+        setConfigLoading(false);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const filteredEntries = useMemo(() => {
     const days = parseInt(timeRange);
@@ -38,10 +59,15 @@ function HistoryView({ entries, onRefresh }) {
 
   // Habit streaks
   const habitStreaks = useMemo(() => {
-    const streaks = { exercise: 0, deep_work: 0, sleep_on_time: 0 };
+    const streaks = {};
+    // Initialize streaks with all habits from config
+    habitsList.forEach(habit => {
+      streaks[habit] = 0;
+    });
+    
     const sorted = [...filteredEntries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     
-    for (const habit of Object.keys(streaks)) {
+    for (const habit of habitsList) {
       let current = 0;
       for (const entry of sorted) {
         if (entry.habits && entry.habits[habit]) {
@@ -53,7 +79,7 @@ function HistoryView({ entries, onRefresh }) {
       streaks[habit] = current;
     }
     return streaks;
-  }, [filteredEntries]);
+  }, [filteredEntries, habitsList]);
 
   // Goal alignment (simple: entries with goals mentioned)
   const goalData = useMemo(() => {
@@ -96,18 +122,18 @@ function HistoryView({ entries, onRefresh }) {
 
         <div className="visualization">
           <h3>Practice Streaks</h3>
-          <div className="streak-item">
-            <span>Exercise</span>
-            <span className="streak-count">{habitStreaks.exercise} days</span>
-          </div>
-          <div className="streak-item">
-            <span>Deep Work</span>
-            <span className="streak-count">{habitStreaks.deep_work} days</span>
-          </div>
-          <div className="streak-item">
-            <span>Sleep on Time</span>
-            <span className="streak-count">{habitStreaks.sleep_on_time} days</span>
-          </div>
+          {configLoading ? (
+            <div className="loading">Loading...</div>
+          ) : (
+            <div>
+              {Object.entries(habitStreaks).map(([habit, streak]) => (
+                <div key={habit} className="streak-item">
+                  <span style={{ textTransform: 'capitalize' }}>{habit.replace(/_/g, ' ')}</span>
+                  <span className="streak-count">{streak} days</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="visualization">

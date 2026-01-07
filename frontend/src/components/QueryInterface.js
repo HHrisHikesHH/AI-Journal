@@ -1,23 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 
-const SUGGESTED_QUESTIONS = [
-  "What drains my energy?",
-  "Am I avoiding something important?",
-  "Am I lying to myself?",
-  "What patterns repeat before burnout?",
-  "Am I moving closer to my long-term goals?",
-  "Am I being disciplined?",
-  "Am I on the right path?"
-];
-
 function QueryInterface() {
+  const [suggestedQuestions, setSuggestedQuestions] = useState([]);
+  const [configLoading, setConfigLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [answer, setAnswer] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Fetch config from backend
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/config/`);
+        const config = response.data;
+        setSuggestedQuestions(config.reflection_questions || []);
+        setConfigLoading(false);
+      } catch (err) {
+        console.error('Error loading config:', err);
+        setConfigLoading(false);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -48,10 +56,11 @@ function QueryInterface() {
         Ask what you need to know. Your reflections will guide the response.
       </p>
 
-      <div style={{ marginBottom: '28px' }}>
-        <label>Suggested Questions:</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '12px' }}>
-          {SUGGESTED_QUESTIONS.map(q => (
+      {suggestedQuestions.length > 0 && (
+        <div style={{ marginBottom: '28px' }}>
+          <label>Suggested Questions:</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '12px' }}>
+            {suggestedQuestions.map(q => (
             <button
               key={q}
               type="button"
@@ -61,9 +70,10 @@ function QueryInterface() {
             >
               {q}
             </button>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '20px' }}>
