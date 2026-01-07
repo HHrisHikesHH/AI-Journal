@@ -415,6 +415,34 @@ label {
   padding: 24px;
   background: rgba(255, 255, 255, 0.5);
   border-radius: 16px;
+  min-height: 300px;
+}
+
+.insight-card {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid var(--sage-200);
+  transition: all 0.3s ease;
+}
+
+.insight-card:hover {
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-2px);
+}
+
+.insight-stat {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--sage-700);
+  margin-bottom: 4px;
+}
+
+.insight-label {
+  font-size: 13px;
+  color: var(--sage-500);
+  font-weight: 300;
 }
 
 .streak-item {
