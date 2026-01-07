@@ -396,16 +396,17 @@ label {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.tab:hover {
-  color: var(--sage-700);
-}
-
 .tab.active {
   color: var(--sage-700);
   font-weight: 400;
 }
 
+.tab:hover {
+  color: white;
+}
+
 .tab.active::after {
+  color: white;
   transform: scaleX(1);
 }
 
