@@ -1,0 +1,25 @@
+{
+  "id": "9e7bb5c8-ed23-4992-a117-45dc4cf09c3b",
+  "timestamp": "2026-01-07T17:28:28.349064",
+  "device": "Kshitijs-MacBook-Pro.local",
+  "emotion": "stressed",
+  "energy": 5,
+  "showed_up": true,
+  "habits": {
+    "exercise": true,
+    "deep_work": true,
+    "sleep_on_time": true
+  },
+  "goals": [],
+  "free_text": " m ,m ,",
+  "long_reflection": ",m , ",
+  "derived": {
+    "sentiment": {
+      "polarity": 0.0,
+      "subjectivity": 0.0
+    },
+    "themes": [],
+    "flags": [],
+    "summary": "Felt stressed energy level 5/10 showed up despite challenges -  m ,m ,..."
+  }
+}
