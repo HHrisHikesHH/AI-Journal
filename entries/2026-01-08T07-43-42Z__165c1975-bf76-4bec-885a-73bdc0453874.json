@@ -1,0 +1,24 @@
+{
+  "id": "165c1975-bf76-4bec-885a-73bdc0453874",
+  "timestamp": "2026-01-08T07:43:42.111421",
+  "device": "htadmin",
+  "emotion": "content",
+  "energy": 7,
+  "showed_up": true,
+  "habits": {
+    "exercise": true,
+    "deep_work": false
+  },
+  "goals": [],
+  "free_text": "Test entry from API test script",
+  "long_reflection": "",
+  "derived": {
+    "sentiment": {
+      "polarity": 0.0,
+      "subjectivity": 0.0
+    },
+    "themes": [],
+    "flags": [],
+    "summary": "Felt content energy level 7/10 showed up despite challenges - Test entry from API test script..."
+  }
+}
