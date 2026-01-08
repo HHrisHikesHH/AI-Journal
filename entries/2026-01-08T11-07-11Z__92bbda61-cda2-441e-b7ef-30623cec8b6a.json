@@ -1,0 +1,39 @@
+{
+  "id": "92bbda61-cda2-441e-b7ef-30623cec8b6a",
+  "timestamp": "2026-01-08T11:07:11.863007",
+  "device": "htadmin",
+  "emotion": "tired",
+  "energy": 1,
+  "showed_up": false,
+  "habits": {
+    "exercise": false,
+    "deep_work": false,
+    "meditation": false,
+    "reading": false,
+    "writing": false,
+    "wake_up_on_time": false,
+    "sleep_on_time": false
+  },
+  "goals": [
+    "career",
+    "health",
+    "relationships"
+  ],
+  "free_text": "work stress",
+  "long_reflection": "",
+  "derived": {
+    "sentiment": {
+      "polarity": 0.0,
+      "subjectivity": 0.0
+    },
+    "themes": [
+      "work",
+      "stress"
+    ],
+    "flags": [
+      "low_energy",
+      "consistency_concern"
+    ],
+    "summary": "Felt tired energy level 1/10 struggled to show up - work stress..."
+  }
+}
