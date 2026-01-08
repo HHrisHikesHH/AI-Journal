@@ -7,10 +7,11 @@
   },
   "models": {
     "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-    "llm_model_path": "local/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
+    "llm_model_path": "local/models/phi-2.Q4_K_M.gguf",
     "llm_model_type": "llama",
-    "llm_max_tokens": 512,
-    "llm_temperature": 0.2
+    "llm_max_tokens": 256,
+    "llm_temperature": 0.2,
+    "_comment_old_model": "Previous model: mistral-7b-instruct-v0.2.Q4_K_M.gguf (4.1GB, slower but higher quality)"
   },
   "habits": {
     "exercise": "Physical activity or movement",

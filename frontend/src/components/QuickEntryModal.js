@@ -21,12 +21,17 @@ function QuickEntryModal({ isOpen, onClose, onEntryCreated }) {
   // Fetch config from backend
   useEffect(() => {
     if (isOpen) {
+      console.log('[QuickEntry] Modal opened, fetching config...');
       const fetchConfig = async () => {
         try {
-          console.info('[QuickEntry] Fetching config...');
+          console.log('[QuickEntry] Making API call to /config/...');
           const response = await axios.get(`${API_BASE}/config/`);
+          console.log('[QuickEntry] Config response received:', response.data);
           const config = response.data;
-          setEmotions(config.emotions || ALLOWED_EMOTIONS);
+          const emotionsList = config.emotions || ALLOWED_EMOTIONS;
+          console.log('[QuickEntry] Setting emotions:', emotionsList);
+          setEmotions(emotionsList);
+          console.log('[QuickEntry] Setting habits:', config.habits);
           setHabitsList(config.habits || []);
           
           // Initialize habits state
@@ -35,16 +40,26 @@ function QuickEntryModal({ isOpen, onClose, onEntryCreated }) {
             initialHabits[habit] = false;
           });
           setHabits(initialHabits);
+          console.log('[QuickEntry] Initial habits state:', initialHabits);
           
-          console.info('[QuickEntry] Config loaded', config);
+          console.log('[QuickEntry] Config loaded successfully');
           setConfigLoading(false);
         } catch (err) {
-          console.error('Error loading config:', err);
+          console.error('[QuickEntry] Error loading config:', err);
+          console.error('[QuickEntry] Error details:', err.response?.data || err.message);
           setEmotions(ALLOWED_EMOTIONS);
           setConfigLoading(false);
         }
       };
       fetchConfig();
+    } else {
+      console.log('[QuickEntry] Modal closed, resetting state');
+      // Reset form when modal closes
+      setEmotion('');
+      setShowedUp(false);
+      setFreeText('');
+      setLongReflection('');
+      setError('');
     }
   }, [isOpen]);
 
@@ -68,23 +83,22 @@ function QuickEntryModal({ isOpen, onClose, onEntryCreated }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Prevent background scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
   const handleHabitChange = (habit) => {
-    setHabits(prev => ({
-      ...prev,
-      [habit]: !prev[habit]
-    }));
+    console.log(`[QuickEntry] Habit ${habit} toggled`);
+    setHabits(prev => {
+      const newHabits = {
+        ...prev,
+        [habit]: !prev[habit]
+      };
+      console.log('[QuickEntry] Updated habits:', newHabits);
+      return newHabits;
+    });
+  };
+  
+  const handleEmotionSelect = (selectedEmotion) => {
+    console.log(`[QuickEntry] Emotion selected: ${selectedEmotion}`);
+    setEmotion(selectedEmotion);
+    console.log(`[QuickEntry] Current emotion state: ${selectedEmotion}`);
   };
 
   const handleSubmit = async (e) => {
@@ -108,7 +122,7 @@ function QuickEntryModal({ isOpen, onClose, onEntryCreated }) {
     setSubmitting(true);
     
     try {
-      console.info('[QuickEntry] Submitting entry...', { emotion, showedUp, habits, freeTextLength: freeText.length });
+      console.log('[QuickEntry] Submitting entry...', { emotion, showedUp, habits, freeTextLength: freeText.length });
       const entryData = {
         emotion,
         energy: 5, // Default energy for quick entry
@@ -118,8 +132,10 @@ function QuickEntryModal({ isOpen, onClose, onEntryCreated }) {
         free_text: freeText.trim(),
         long_reflection: longReflection.trim()
       };
-      
+      console.log('[QuickEntry] Entry data:', entryData);
+      console.log('[QuickEntry] Making API call to /entry/...');
       await axios.post(`${API_BASE}/entry/`, entryData);
+      console.log('[QuickEntry] Entry saved successfully');
       
       // Reset form
       setEmotion('');
@@ -135,8 +151,8 @@ function QuickEntryModal({ isOpen, onClose, onEntryCreated }) {
       onEntryCreated();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save entry');
       console.error('[QuickEntry] Submit failed', err.response?.data || err.message);
+      setError(err.response?.data?.error || 'Failed to save entry');
     } finally {
       setSubmitting(false);
     }
@@ -166,7 +182,7 @@ function QuickEntryModal({ isOpen, onClose, onEntryCreated }) {
                     key={em}
                     type="button"
                     className={`emotion-button ${emotion === em ? 'active' : ''}`}
-                    onClick={() => setEmotion(em)}
+                    onClick={() => handleEmotionSelect(em)}
                     aria-pressed={emotion === em}
                   >
                     {em}

@@ -16,6 +16,12 @@ from .llm_adapter import call_local_llm
 rag_system = None
 last_insight_date = None
 last_insight = None
+_llm_processing = False  # Flag to prevent concurrent LLM calls
+
+# Config cache
+_config_cache = None
+_config_cache_time = None
+CONFIG_CACHE_TTL = 300  # 5 minutes
 
 def get_rag_system():
     global rag_system
@@ -27,23 +33,39 @@ def get_rag_system():
 @require_http_methods(["POST"])
 def create_entry(request):
     """Create a new journal entry."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
+        logger.info("[CreateEntry] POST /api/entry/ called")
         data = json.loads(request.body)
+        logger.debug(f"[CreateEntry] Request data: {data}")
         
         # Validate required fields
         required_fields = ['emotion', 'energy', 'showed_up', 'habits', 'free_text']
         for field in required_fields:
             if field not in data:
+                logger.warning(f"[CreateEntry] Missing required field: {field}")
                 return JsonResponse({'error': f'Missing required field: {field}'}, status=400)
         
         # Validate free_text length (must be <= 200 chars)
         if len(data['free_text']) > 200:
+            logger.warning(f"[CreateEntry] free_text too long: {len(data['free_text'])} chars")
             return JsonResponse({'error': 'free_text must be <= 200 characters'}, status=400)
         
-        # Validate emotion is in allowed list
-        allowed_emotions = ["content", "anxious", "sad", "angry", "motivated", "tired", "calm", "stressed"]
+        # Validate emotion is in allowed list (load from config)
+        try:
+            with open(settings.CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+            allowed_emotions = config.get('emotions', ["content", "anxious", "sad", "angry", "motivated", "tired", "calm", "stressed"])
+        except Exception:
+            allowed_emotions = ["content", "anxious", "sad", "angry", "motivated", "tired", "calm", "stressed"]
+        
         if data['emotion'] not in allowed_emotions:
+            logger.warning(f"[CreateEntry] Invalid emotion: {data['emotion']}, allowed: {allowed_emotions}")
             return JsonResponse({'error': f'emotion must be one of: {", ".join(allowed_emotions)}'}, status=400)
+        
+        logger.info(f"[CreateEntry] Validation passed, creating entry with emotion: {data['emotion']}")
         
         # Generate entry
         entry_id = str(uuid.uuid4())
@@ -63,47 +85,72 @@ def create_entry(request):
             'long_reflection': data.get('long_reflection', ''),
             'derived': {}
         }
+        logger.debug(f"[CreateEntry] Entry object created: id={entry_id}, timestamp={timestamp}")
         
         # Process entry to add derived fields
+        logger.debug("[CreateEntry] Processing entry to add derived fields...")
         processor = EntryProcessor()
         entry = processor.process_entry(entry)
+        logger.debug(f"[CreateEntry] Derived fields: {entry.get('derived', {})}")
         
         # Save entry to file
         filename = f"{entry['timestamp'].replace(':', '-').split('.')[0]}Z__{entry_id}.json"
         filepath = settings.ENTRIES_DIR / filename
+        logger.info(f"[CreateEntry] Saving entry to file: {filepath}")
         
         with open(filepath, 'w') as f:
             json.dump(entry, f, indent=2)
+        logger.info(f"[CreateEntry] Entry saved to {filename}")
         
         # Add to RAG index incrementally
+        logger.debug("[CreateEntry] Adding entry to RAG index...")
         rag = get_rag_system()
         rag.add_entry(entry)
+        logger.info("[CreateEntry] Entry added to RAG index")
         
+        logger.info(f"[CreateEntry] Entry created successfully: {entry_id}")
         return JsonResponse(entry, status=201)
     
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.error(f"[CreateEntry] Invalid JSON: {e}")
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
+        import traceback
+        logger.error(f"[CreateEntry] Unexpected error: {e}")
+        logger.error(f"[CreateEntry] Traceback: {traceback.format_exc()}")
         return JsonResponse({'error': str(e)}, status=500)
 
 @require_http_methods(["GET"])
 def get_entries(request):
-    """Get recent entries."""
+    """Get recent entries (optimized)."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         days = int(request.GET.get('days', 7))
         cutoff_date = datetime.now() - timedelta(days=days)
         
+        logger.debug(f"[GetEntries] Loading entries for last {days} days")
         entries = []
-        for filepath in sorted(settings.ENTRIES_DIR.glob('*.json'), reverse=True):
+        entry_files = sorted(settings.ENTRIES_DIR.glob('*.json'), reverse=True)
+        
+        # Limit file reads for performance (assume max 3 entries per day)
+        max_files_to_check = min(len(entry_files), days * 3)
+        
+        for filepath in entry_files[:max_files_to_check]:
             try:
                 with open(filepath, 'r') as f:
                     entry = json.load(f)
                     entry_timestamp = datetime.fromisoformat(entry['timestamp'].replace('Z', '+00:00'))
                     if entry_timestamp.replace(tzinfo=None) >= cutoff_date:
                         entries.append(entry)
-            except Exception:
+                    elif len(entries) > 0:  # If we've found entries but this one is too old, we can stop
+                        break
+            except Exception as e:
+                logger.debug(f"[GetEntries] Error reading {filepath.name}: {e}")
                 continue
         
+        logger.debug(f"[GetEntries] Returning {len(entries)} entries")
         return JsonResponse({'entries': entries}, safe=False)
     
     except Exception as e:
@@ -161,50 +208,117 @@ def rebuild_index(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+@csrf_exempt
 @require_http_methods(["GET"])
 def get_config(request):
-    """Get configuration from config.json."""
+    """Get configuration from config.json (cached)."""
+    import logging
+    import time
+    global _config_cache, _config_cache_time
+    logger = logging.getLogger(__name__)
+    
     try:
+        # Check cache first
+        current_time = time.time()
+        if _config_cache is not None and _config_cache_time is not None:
+            if current_time - _config_cache_time < CONFIG_CACHE_TTL:
+                logger.debug("[GetConfig] Returning cached config")
+                return JsonResponse(_config_cache)
+        
+        # Cache miss or expired - load from file
+        logger.debug(f"[GetConfig] Loading config from {settings.CONFIG_FILE}")
+        
+        if not settings.CONFIG_FILE.exists():
+            logger.error(f"[GetConfig] Config file not found: {settings.CONFIG_FILE}")
+            return JsonResponse({'error': f'Config file not found at {settings.CONFIG_FILE}'}, status=500)
+        
         with open(settings.CONFIG_FILE, 'r') as f:
             config = json.load(f)
+        logger.debug(f"[GetConfig] Config loaded: emotions={len(config.get('emotions', []))}, habits={len(config.get('habits', {}))}")
+        
         # Return only the parts needed by frontend
-        return JsonResponse({
+        response_data = {
             'emotions': config.get('emotions', []),
             'habits': list(config.get('habits', {}).keys()),
             'reflection_questions': config.get('reflection_questions', []),
             'goals': config.get('user', {}).get('goals', [])
-        })
+        }
+        
+        # Update cache
+        _config_cache = response_data
+        _config_cache_time = current_time
+        
+        logger.debug(f"[GetConfig] Config cached, returning: {len(response_data['emotions'])} emotions, {len(response_data['habits'])} habits")
+        return JsonResponse(response_data)
+    except json.JSONDecodeError as e:
+        logger.error(f"[GetConfig] Invalid JSON in config file: {e}")
+        return JsonResponse({'error': f'Invalid JSON in config file: {str(e)}'}, status=500)
     except Exception as e:
+        logger.error(f"[GetConfig] Error loading config: {e}", exc_info=True)
         return JsonResponse({'error': str(e)}, status=500)
 
 @require_http_methods(["GET"])
 def insight_on_open(request):
     """Get daily insight on app open. Rate-limited to once per calendar day."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     global last_insight_date, last_insight
     
+    logger.info("[Insight] Insight on_open endpoint called")
     today = datetime.now().date()
+    logger.debug(f"[Insight] Today's date: {today}, Last insight date: {last_insight_date}")
     
-    # Return cached insight if already generated today
-    if last_insight_date == today and last_insight:
+    # Check if user wants to force refresh (for testing polling)
+    force_refresh = request.GET.get('force_refresh', '').lower() == 'true'
+    
+    # Return cached insight if already generated today (unless force refresh)
+    if not force_refresh and last_insight_date == today and last_insight:
+        logger.info("[Insight] Returning cached insight from today")
+        # Ensure source field is set
+        if 'source' not in last_insight:
+            last_insight['source'] = 'llm' if last_insight.get('evidence') and any('json' in str(e) for e in last_insight.get('evidence', [])) else 'fallback'
+        if 'llm_processing' not in last_insight:
+            last_insight['llm_processing'] = False
         return JsonResponse(last_insight)
     
     try:
-        rag = get_rag_system()
+        logger.info("[Insight] Generating new insight...")
+        try:
+            rag = get_rag_system()
+            logger.debug("[Insight] RAG system loaded")
+        except Exception as rag_error:
+            error_msg = str(rag_error)
+            logger.error(f"[Insight] Error loading RAG system: {error_msg}")
+            # If it's a meta tensor error, we can still provide fallback insight
+            if 'meta tensor' in error_msg.lower() or 'to_empty' in error_msg.lower():
+                logger.warning("[Insight] Meta tensor error in RAG system, using fallback without RAG")
+                rag = None
+            else:
+                raise
         
-        # Get last 7 days of entries
+        # Get last 7 days of entries (don't need RAG for this)
         cutoff_date = datetime.now() - timedelta(days=7)
+        logger.debug(f"[Insight] Loading entries from last 7 days (cutoff: {cutoff_date})")
         entries = []
-        for filepath in sorted(settings.ENTRIES_DIR.glob('*.json'), reverse=True):
+        entry_files = sorted(settings.ENTRIES_DIR.glob('*.json'), reverse=True)
+        logger.debug(f"[Insight] Found {len(entry_files)} entry files")
+        
+        for filepath in entry_files:
             try:
                 with open(filepath, 'r') as f:
                     entry = json.load(f)
                     entry_timestamp = datetime.fromisoformat(entry['timestamp'].replace('Z', '+00:00'))
                     if entry_timestamp.replace(tzinfo=None) >= cutoff_date:
                         entries.append(entry)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"[Insight] Error reading entry file {filepath.name}: {e}")
                 continue
         
+        logger.info(f"[Insight] Loaded {len(entries)} entries from last 7 days")
+        
         if len(entries) < 1:
+            logger.info("[Insight] No entries found, returning default message")
             return JsonResponse({
                 'verdict': 'Start journaling to receive insights.',
                 'evidence': [],
@@ -213,6 +327,7 @@ def insight_on_open(request):
             })
         
         # Build context
+        logger.debug("[Insight] Building context from entries...")
         context_parts = []
         for entry in entries[:10]:  # Use up to 10 most recent
             entry_date = entry.get('timestamp', '')[:10]
@@ -225,11 +340,18 @@ def insight_on_open(request):
                 context_parts.append(f"  Note: {entry.get('free_text')}")
         
         context = '\n'.join(context_parts)
+        logger.debug(f"[Insight] Context built ({len(context)} chars)")
         
         # Load prompt template
         prompt_path = Path(__file__).parent.parent / 'prompts' / 'system_prompt.txt'
-        with open(prompt_path, 'r') as f:
-            system_prompt = f.read()
+        logger.debug(f"[Insight] Loading prompt from {prompt_path}")
+        try:
+            with open(prompt_path, 'r') as f:
+                system_prompt = f.read()
+            logger.debug(f"[Insight] System prompt loaded ({len(system_prompt)} chars)")
+        except Exception as e:
+            logger.error(f"[Insight] Error loading prompt template: {e}")
+            raise
         
         user_prompt = f"""Context from recent journal entries:
 {context}
@@ -237,28 +359,111 @@ def insight_on_open(request):
 Provide one neutral observation and one micro-action based on the patterns above."""
         
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        logger.debug(f"[Insight] Full prompt prepared ({len(full_prompt)} chars)")
         
-        # Call LLM
-        try:
-            response = call_local_llm(full_prompt, max_tokens=512, temp=0.2)
-            parsed = _parse_llm_response(response)
+        # Generate fast fallback immediately
+        if len(entries) > 0:
+            showed_up_count = sum(1 for e in entries if e.get('showed_up', False))
+            recent_emotions = [e.get('emotion', 'unknown') for e in entries[:5]]
+            emotion_counts = {}
+            for em in recent_emotions:
+                emotion_counts[em] = emotion_counts.get(em, 0) + 1
+            top_emotion = max(emotion_counts.items(), key=lambda x: x[1])[0] if emotion_counts else 'unknown'
             
-            # Cache for today
-            last_insight_date = today
-            last_insight = parsed
-            
-            return JsonResponse(parsed)
-        except Exception as e:
-            print(f"Error generating insight: {e}")
-            return JsonResponse({
-                'verdict': 'Unable to generate insight at this time.',
+            fallback_parsed = {
+                'verdict': f'I notice you\'ve been journaling regularly ({len(entries)} entries in the last week).',
+                'evidence': [
+                    f'Found {len(entries)} entries in the last 7 days',
+                    f'Showed up {showed_up_count} out of {len(entries)} days',
+                    f'Most common emotion: {top_emotion}'
+                ],
+                'action': 'Continue with your current journaling practice.',
+                'confidence_estimate': 70
+            }
+        else:
+            fallback_parsed = {
+                'verdict': 'Start journaling to receive insights.',
                 'evidence': [],
-                'action': 'Continue journaling.',
+                'action': 'Create your first entry.',
                 'confidence_estimate': 0
-            })
+            }
+        
+        # Start LLM in background (non-blocking)
+        global _llm_processing
+        llm_started = False
+        if not _llm_processing:
+            import threading
+            _llm_processing = True
+            llm_started = True
+            
+            def llm_background_task():
+                global last_insight, last_insight_date, _llm_processing
+                try:
+                    import time
+                    start_time = time.time()
+                    logger.info("[Insight] 🤖 Starting background LLM call...")
+                    logger.info(f"[Insight] 📝 Prompt length: {len(full_prompt)} chars, max_tokens: 200")
+                    
+                    response = call_local_llm(full_prompt, max_tokens=200, temp=0.2)  # Reduced tokens for speed
+                    
+                    elapsed = time.time() - start_time
+                    logger.info(f"[Insight] ⏱️ LLM call completed in {elapsed:.1f} seconds")
+                    
+                    if response and len(response) > 10:  # Valid response
+                        logger.info(f"[Insight] 📄 LLM response received ({len(response)} chars)")
+                        logger.debug(f"[Insight] Raw LLM response preview: {response[:200]}...")
+                        
+                        parsed = _parse_llm_response(response)
+                        parsed['source'] = 'llm'  # Mark as LLM-generated
+                        parsed['llm_processing'] = False
+                        
+                        logger.info(f"[Insight] ✨ LLM insight generated successfully!")
+                        logger.info(f"[Insight] 📊 Parsed result: verdict={parsed.get('verdict', '')[:60]}..., evidence={len(parsed.get('evidence', []))}, action={parsed.get('action', '')[:50]}...")
+                        
+                        # Update cache with LLM result
+                        last_insight = parsed
+                        last_insight_date = today
+                        logger.info("[Insight] ✅ Cache updated with LLM response - next API call will return LLM insight")
+                    else:
+                        logger.warning("[Insight] ⚠️ LLM returned empty/invalid response, keeping fallback")
+                except Exception as e:
+                    import traceback
+                    logger.error(f"[Insight] ❌ Background LLM call failed: {e}")
+                    logger.error(f"[Insight] Traceback: {traceback.format_exc()}")
+                    # Keep fallback, don't update cache
+                finally:
+                    _llm_processing = False
+                    logger.info("[Insight] 🏁 LLM background task completed")
+            
+            # Start background thread
+            llm_thread = threading.Thread(target=llm_background_task, daemon=True)
+            llm_thread.start()
+            logger.info("[Insight] LLM processing started in background, returning fallback immediately")
+        else:
+            logger.debug("[Insight] LLM already processing, returning fallback")
+        
+        # Return fallback immediately (fast response)
+        # Mark as fallback so frontend knows to poll for LLM result
+        fallback_parsed['source'] = 'fallback'
+        fallback_parsed['llm_processing'] = llm_started  # True if LLM just started
+        
+        last_insight_date = today
+        last_insight = fallback_parsed
+        logger.info("[Insight] Returning fallback insight immediately")
+        
+        return JsonResponse(fallback_parsed)
     
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        import traceback
+        logger.error(f"[Insight] Outer exception in insight_on_open: {e}")
+        logger.error(f"[Insight] Traceback: {traceback.format_exc()}")
+        return JsonResponse({
+            'error': str(e),
+            'verdict': 'Unable to generate insight due to a system error.',
+            'evidence': [],
+            'action': 'Please try again later.',
+            'confidence_estimate': 0
+        }, status=500)
 
 @require_http_methods(["GET"])
 def search(request):
@@ -431,33 +636,62 @@ def _parse_llm_response(response: str) -> dict:
         'confidence_estimate': 0
     }
     
+    if not response or len(response.strip()) < 10:
+        # Response too short or empty
+        result['verdict'] = 'Unable to generate insight at this time.'
+        return result
+    
     lines = response.split('\n')
     current_section = None
     
     for line in lines:
         line = line.strip()
-        if line.startswith('VERDICT:'):
-            result['verdict'] = line.replace('VERDICT:', '').strip()
-        elif line.startswith('EVIDENCE:'):
+        if not line:
+            continue
+            
+        # More flexible matching for VERDICT
+        if line.upper().startswith('VERDICT:') or line.upper().startswith('VERDICT'):
+            result['verdict'] = line.split(':', 1)[-1].strip() if ':' in line else line.replace('VERDICT', '').strip()
+        elif line.upper().startswith('EVIDENCE:'):
             current_section = 'evidence'
-        elif line.startswith('ACTION:'):
-            result['action'] = line.replace('ACTION:', '').strip()
+        elif line.upper().startswith('ACTION:'):
+            result['action'] = line.split(':', 1)[-1].strip() if ':' in line else line.replace('ACTION', '').strip()
             current_section = None
-        elif line.startswith('CONFIDENCE_ESTIMATE:'):
+        elif line.upper().startswith('CONFIDENCE_ESTIMATE:') or line.upper().startswith('CONFIDENCE'):
             try:
-                result['confidence_estimate'] = int(line.replace('CONFIDENCE_ESTIMATE:', '').strip())
+                conf_str = line.split(':', 1)[-1].strip() if ':' in line else line.replace('CONFIDENCE', '').strip()
+                # Extract first number found
+                import re
+                numbers = re.findall(r'\d+', conf_str)
+                if numbers:
+                    result['confidence_estimate'] = min(100, max(0, int(numbers[0])))
             except:
                 pass
             current_section = None
-        elif current_section == 'evidence' and line.startswith('-'):
-            result['evidence'].append(line[1:].strip())
+        elif current_section == 'evidence' and (line.startswith('-') or line.startswith('*')):
+            evidence_text = line[1:].strip()
+            if evidence_text:
+                result['evidence'].append(evidence_text)
     
-    # Fallback if parsing fails
+    # Fallback if parsing fails - try to extract meaningful content
     if not result['verdict']:
-        result['verdict'] = response[:200]
+        # Try to find first sentence or meaningful text
+        first_line = response.split('\n')[0].strip()
+        if len(first_line) > 20:
+            result['verdict'] = first_line[:200]
+        else:
+            # Look for any sentence in the response
+            sentences = response.split('.')
+            for sent in sentences:
+                sent = sent.strip()
+                if len(sent) > 20 and not sent.startswith('VERDICT') and not sent.startswith('EVIDENCE'):
+                    result['verdict'] = sent[:200]
+                    break
+            if not result['verdict']:
+                result['verdict'] = response[:200] if len(response) > 20 else 'Unable to generate insight at this time.'
     
     # Calculate confidence if not provided
     if result['confidence_estimate'] == 0:
-        result['confidence_estimate'] = min(100, 20 * len(result['evidence']))
+        result['confidence_estimate'] = min(100, 20 * max(1, len(result['evidence'])))
     
     return result

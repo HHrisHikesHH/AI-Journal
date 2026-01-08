@@ -73,57 +73,89 @@ function HistoryView({ entries, onRefresh }) {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [filteredEntries]);
 
-  // Showed up streak
-  const showedUpStreak = useMemo(() => {
-    const sorted = [...filteredEntries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    let current = 0;
-    let longest = 0;
-    let tempLongest = 0;
+  // Helper function to calculate consecutive day streaks
+  const calculateConsecutiveDayStreak = (entries, checkFn) => {
+    // Group entries by date (YYYY-MM-DD)
+    const byDate = {};
+    entries.forEach(entry => {
+      const date = entry.timestamp.split('T')[0]; // Get YYYY-MM-DD
+      if (!byDate[date]) {
+        byDate[date] = [];
+      }
+      byDate[date].push(entry);
+    });
     
-    for (const entry of sorted) {
-      if (entry.showed_up) {
-        current++;
-        tempLongest++;
-        longest = Math.max(longest, tempLongest);
-      } else {
-        tempLongest = 0;
-        // Don't reset current streak if we're looking at past entries
-        // Only reset if this is the most recent entry
-        if (current > 0 && entry === sorted[0]) {
-          current = 0;
-        }
+    // Get unique dates sorted (newest first)
+    const dates = Object.keys(byDate).sort((a, b) => new Date(b) - new Date(a));
+    
+    // For each date, determine if condition is met
+    const dayStatus = {};
+    dates.forEach(date => {
+      const dayEntries = byDate[date];
+      // Check if ANY entry on this day meets the condition
+      dayStatus[date] = dayEntries.some(entry => checkFn(entry));
+    });
+    
+    // Calculate current streak (from most recent date backwards, checking for consecutive days)
+    let current = 0;
+    if (dates.length === 0) {
+      return { current: 0, longest: 0 };
+    }
+    
+    // Start from the most recent date
+    let currentDateObj = new Date(dates[0] + 'T00:00:00'); // Add time to avoid timezone issues
+    let checkDate = dates[0];
+    
+    // Go backwards day by day, checking if condition is met and days are consecutive
+    while (dayStatus[checkDate] === true) {
+      current++;
+      
+      // Move to previous day
+      currentDateObj.setDate(currentDateObj.getDate() - 1);
+      checkDate = format(currentDateObj, 'yyyy-MM-dd');
+      
+      // Stop if the previous day doesn't have entries (gap in data) or condition not met
+      if (!dayStatus.hasOwnProperty(checkDate)) {
+        // Gap in entries - streak is broken
+        break;
       }
     }
     
+    // Calculate longest streak
+    let longest = 0;
+    let tempStreak = 0;
+    dates.forEach(date => {
+      if (dayStatus[date]) {
+        tempStreak++;
+        longest = Math.max(longest, tempStreak);
+      } else {
+        tempStreak = 0;
+      }
+    });
+    
     return { current, longest };
+  };
+
+  // Showed up streak
+  const showedUpStreak = useMemo(() => {
+    return calculateConsecutiveDayStreak(
+      filteredEntries,
+      (entry) => entry.showed_up === true
+    );
   }, [filteredEntries]);
 
   // Habit streaks
   const habitStreaks = useMemo(() => {
     const streaks = {};
-    habitsList.forEach(habit => {
-      streaks[habit] = { current: 0, longest: 0 };
-    });
-    
-    const sorted = [...filteredEntries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     
     for (const habit of habitsList) {
-      let current = 0;
-      let longest = 0;
-      let maxStreak = 0;
-      
-      for (const entry of sorted) {
-        if (entry.habits && entry.habits[habit]) {
-          current++;
-          maxStreak = Math.max(maxStreak, current);
-        } else {
-          longest = Math.max(longest, current);
-          current = 0;
-        }
-      }
-      longest = Math.max(longest, current);
-      streaks[habit] = { current, longest };
+      const result = calculateConsecutiveDayStreak(
+        filteredEntries,
+        (entry) => entry.habits && entry.habits[habit] === true
+      );
+      streaks[habit] = result;
     }
+    
     return streaks;
   }, [filteredEntries, habitsList]);
 
@@ -360,37 +392,24 @@ function HistoryView({ entries, onRefresh }) {
   
   // Low energy streak analysis
   const burnoutIndicators = useMemo(() => {
-    let lowEnergyStreak = 0;
-    let maxLowEnergyStreak = 0;
-    let highStressStreak = 0;
-    let maxHighStressStreak = 0;
+    // Low energy streak (energy < 4)
+    const lowEnergyResult = calculateConsecutiveDayStreak(
+      filteredEntries,
+      (entry) => (entry.energy || 5) < 4
+    );
     
-    const sorted = [...filteredEntries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    sorted.forEach(entry => {
-      // Low energy streak (energy < 4)
-      if ((entry.energy || 5) < 4) {
-        lowEnergyStreak++;
-        maxLowEnergyStreak = Math.max(maxLowEnergyStreak, lowEnergyStreak);
-      } else {
-        lowEnergyStreak = 0;
-      }
-      
-      // High stress streak (stressed/anxious/angry + energy < 5)
-      const stressEmotions = ['stressed', 'anxious', 'angry'];
-      if (stressEmotions.includes(entry.emotion) && (entry.energy || 5) < 5) {
-        highStressStreak++;
-        maxHighStressStreak = Math.max(maxHighStressStreak, highStressStreak);
-      } else {
-        highStressStreak = 0;
-      }
-    });
+    // High stress streak (stressed/anxious/angry + energy < 5)
+    const stressEmotions = ['stressed', 'anxious', 'angry'];
+    const highStressResult = calculateConsecutiveDayStreak(
+      filteredEntries,
+      (entry) => stressEmotions.includes(entry.emotion) && (entry.energy || 5) < 5
+    );
     
     return {
-      currentLowEnergyStreak: lowEnergyStreak,
-      maxLowEnergyStreak,
-      currentHighStressStreak: highStressStreak,
-      maxHighStressStreak
+      currentLowEnergyStreak: lowEnergyResult.current,
+      maxLowEnergyStreak: lowEnergyResult.longest,
+      currentHighStressStreak: highStressResult.current,
+      maxHighStressStreak: highStressResult.longest
     };
   }, [filteredEntries]);
 

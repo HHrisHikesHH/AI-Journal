@@ -61,34 +61,46 @@ cd ..
 
 You must download a local LLM model. The app will check for the model and exit with clear instructions if missing.
 
-**Expected path**: `local/models/llama_model.bin` (or path specified in `config.json`)
+**Expected path**: `local/models/phi-2.Q4_K_M.gguf` (or path specified in `config.json`)
 
-**Recommended**: Download a GGUF-format model from Hugging Face:
+**Quick Download (Recommended)**: Use the download script:
+
+```bash
+./scripts/download_fast_model.sh
+```
+
+This will let you choose from:
+1. **TinyLlama 1.1B** (~700MB) - FASTEST, good for simple patterns
+2. **Phi-2 2.7B** (~1.6GB) - Fast, better quality  
+3. **Qwen2.5-1.5B** (~1GB) - Good balance
+
+**Manual Download** (if script doesn't work):
 
 ```bash
 # Create models directory
 mkdir -p local/models
 
-# Example: Download Mistral 7B Instruct (Q4_K_M quantized, ~4GB)
+# Download TinyLlama 1.1B (recommended for speed)
 cd local/models
-wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+wget https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf -O phi-2.Q4_K_M.gguf
 cd ../..
 ```
 
-**Update `config.json`** to point to your model:
+**Update `config.json`** to point to your model (already configured for Phi-2):
 
 ```json
 {
   "models": {
-    "llm_model_path": "local/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+    "llm_model_path": "local/models/phi-2.Q4_K_M.gguf"
   }
 }
 ```
 
-**Alternative models**:
-- LLaMA 2 7B Instruct (GGUF)
-- Phi-3 Mini (GGUF)
-- Any compatible GGUF model
+**Note**: The app is optimized for speed with:
+- 8 CPU threads (utilizes more cores)
+- Reduced context window (1024 tokens)
+- Batch processing enabled
+- Memory mapping for faster loading
 
 ### Step 4: Verify Configuration
 

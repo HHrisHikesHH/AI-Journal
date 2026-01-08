@@ -1,12 +1,15 @@
 import json
 import os
 import numpy as np
+import logging
 from pathlib import Path
 from typing import List, Dict, Any
 from django.conf import settings
 from sentence_transformers import SentenceTransformer
 import faiss
 from .llm_adapter import call_local_llm
+
+logger = logging.getLogger(__name__)
 
 class RAGSystem:
     """RAG system for querying journal entries."""
@@ -21,11 +24,73 @@ class RAGSystem:
     def _load_embedding_model(self):
         """Load the sentence transformer model."""
         try:
+            import torch
+            import logging
+            logger = logging.getLogger(__name__)
+            
             model_name = self._get_config()['models']['embedding_model']
-            self.embedding_model = SentenceTransformer(model_name)
-            print(f"Loaded embedding model: {model_name}")
+            logger.info(f"[RAG] Loading embedding model: {model_name}")
+            
+            # Explicitly set device to CPU and disable meta tensors
+            device = 'cpu'
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    device = 'cuda'
+            except:
+                device = 'cpu'
+            
+            # Set environment variables to avoid meta tensor issues
+            os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = '1'
+            os.environ['HF_HUB_DISABLE_EXPERIMENTAL_WARNING'] = '1'
+            
+            # Try loading with different methods to avoid meta tensor issues
+            loaded = False
+            
+            # Method 1: Standard load with device
+            try:
+                self.embedding_model = SentenceTransformer(
+                    model_name,
+                    device='cpu'  # Force CPU to avoid device issues
+                )
+                logger.info(f"[RAG] Loaded embedding model: {model_name} on CPU")
+                loaded = True
+            except Exception as e1:
+                error_str = str(e1).lower()
+                if 'meta tensor' in error_str or 'to_empty' in error_str:
+                    logger.warning(f"[RAG] Meta tensor error, trying alternative methods...")
+                    
+                    # Method 2: Load with trust_remote_code
+                    try:
+                        self.embedding_model = SentenceTransformer(
+                            model_name,
+                            device='cpu',
+                            trust_remote_code=True
+                        )
+                        logger.info(f"[RAG] Loaded embedding model (method 2): {model_name}")
+                        loaded = True
+                    except Exception as e2:
+                        logger.debug(f"[RAG] Method 2 failed: {e2}")
+                        
+                        # Method 3: Load without device specification
+                        try:
+                            self.embedding_model = SentenceTransformer(model_name)
+                            logger.info(f"[RAG] Loaded embedding model (method 3): {model_name}")
+                            loaded = True
+                        except Exception as e3:
+                            logger.error(f"[RAG] All loading methods failed. Last error: {e3}")
+                            raise RuntimeError(f"Failed to load embedding model after multiple attempts: {e3}")
+                else:
+                    # Not a meta tensor error, re-raise
+                    raise
+            
+            if not loaded:
+                raise RuntimeError("Failed to load embedding model")
+                    
         except Exception as e:
-            print(f"Error loading embedding model: {e}")
+            import traceback
+            logger.error(f"[RAG] Error loading embedding model: {e}")
+            logger.error(f"[RAG] Traceback: {traceback.format_exc()}")
             raise
     
     def _get_config(self):
@@ -287,34 +352,62 @@ Provide a gentle, supportive response based ONLY on the context above. If the co
             'confidence_estimate': 0
         }
         
+        if not response or len(response.strip()) < 10:
+            result['verdict'] = 'Unable to generate response at this time.'
+            return result
+        
         lines = response.split('\n')
         current_section = None
         
         for line in lines:
             line = line.strip()
-            if line.startswith('VERDICT:'):
-                result['verdict'] = line.replace('VERDICT:', '').strip()
-            elif line.startswith('EVIDENCE:'):
+            if not line:
+                continue
+                
+            # More flexible matching for VERDICT
+            if line.upper().startswith('VERDICT:') or line.upper().startswith('VERDICT'):
+                result['verdict'] = line.split(':', 1)[-1].strip() if ':' in line else line.replace('VERDICT', '').strip()
+            elif line.upper().startswith('EVIDENCE:'):
                 current_section = 'evidence'
-            elif line.startswith('ACTION:'):
-                result['action'] = line.replace('ACTION:', '').strip()
+            elif line.upper().startswith('ACTION:'):
+                result['action'] = line.split(':', 1)[-1].strip() if ':' in line else line.replace('ACTION', '').strip()
                 current_section = None
-            elif line.startswith('CONFIDENCE_ESTIMATE:'):
+            elif line.upper().startswith('CONFIDENCE_ESTIMATE:') or line.upper().startswith('CONFIDENCE'):
                 try:
-                    result['confidence_estimate'] = int(line.replace('CONFIDENCE_ESTIMATE:', '').strip())
+                    conf_str = line.split(':', 1)[-1].strip() if ':' in line else line.replace('CONFIDENCE', '').strip()
+                    # Extract first number found
+                    import re
+                    numbers = re.findall(r'\d+', conf_str)
+                    if numbers:
+                        result['confidence_estimate'] = min(100, max(0, int(numbers[0])))
                 except:
                     pass
                 current_section = None
-            elif current_section == 'evidence' and line.startswith('-'):
-                result['evidence'].append(line[1:].strip())
+            elif current_section == 'evidence' and (line.startswith('-') or line.startswith('*')):
+                evidence_text = line[1:].strip()
+                if evidence_text:
+                    result['evidence'].append(evidence_text)
         
-        # Fallback if parsing fails
+        # Fallback if parsing fails - try to extract meaningful content
         if not result['verdict']:
-            result['verdict'] = response[:200]
+            # Try to find first sentence or meaningful text
+            first_line = response.split('\n')[0].strip()
+            if len(first_line) > 20:
+                result['verdict'] = first_line[:200]
+            else:
+                # Look for any sentence in the response
+                sentences = response.split('.')
+                for sent in sentences:
+                    sent = sent.strip()
+                    if len(sent) > 20 and not sent.startswith('VERDICT') and not sent.startswith('EVIDENCE'):
+                        result['verdict'] = sent[:200]
+                        break
+                if not result['verdict']:
+                    result['verdict'] = response[:200] if len(response) > 20 else 'Unable to generate response at this time.'
         
         # Calculate confidence if not provided
         if result['confidence_estimate'] == 0:
-            result['confidence_estimate'] = min(100, 20 * len(result['evidence']))
+            result['confidence_estimate'] = min(100, 20 * max(1, len(result['evidence'])))
         
         return result
     
