@@ -1,0 +1,33 @@
+{
+  "id": "a3c666c0-f31a-4e5d-8ae7-8068110ea085",
+  "timestamp": "2026-01-07T22:40:48.513334",
+  "device": "htadmin",
+  "emotion": "tired",
+  "energy": 5,
+  "showed_up": false,
+  "habits": {
+    "exercise": false,
+    "deep_work": false,
+    "meditation": false,
+    "reading": false,
+    "writing": false,
+    "wake_up_on_time": false,
+    "sleep_on_time": false
+  },
+  "goals": [
+    "career",
+    "health",
+    "relationships"
+  ],
+  "free_text": "bad day",
+  "long_reflection": "",
+  "derived": {
+    "sentiment": {
+      "polarity": -0.6999999999999998,
+      "subjectivity": 0.6666666666666666
+    },
+    "themes": [],
+    "flags": [],
+    "summary": "Felt tired energy level 5/10 struggled to show up - bad day..."
+  }
+}

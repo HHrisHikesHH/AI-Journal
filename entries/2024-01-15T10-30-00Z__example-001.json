@@ -1,0 +1,26 @@
+{
+  "id": "example-001",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "device": "laptop",
+  "emotion": "content",
+  "energy": 7,
+  "showed_up": true,
+  "habits": {
+    "exercise": true,
+    "deep_work": true,
+    "sleep_on_time": false
+  },
+  "goals": ["career", "health"],
+  "free_text": "Worked on RAG POC; felt productive but stayed up late.",
+  "long_reflection": "Today was a good day. I made progress on the RAG project and felt energized. However, I stayed up too late working, which might affect tomorrow's energy.",
+  "derived": {
+    "sentiment": {
+      "polarity": 0.3,
+      "subjectivity": 0.6
+    },
+    "themes": ["work", "health"],
+    "flags": [],
+    "summary": "Felt content energy level 7/10 showed up despite challenges - Worked on RAG POC; felt productive but stayed up late...."
+  }
+}
+

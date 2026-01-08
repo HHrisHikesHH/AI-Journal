@@ -1,0 +1,37 @@
+{
+  "id": "b91235d5-f675-4c29-b1f8-26f59c00a1e6",
+  "timestamp": "2026-01-08T06:55:08.460252",
+  "device": "htadmin",
+  "emotion": "stressed",
+  "energy": 1,
+  "showed_up": false,
+  "habits": {
+    "exercise": false,
+    "deep_work": false,
+    "meditation": false,
+    "reading": false,
+    "writing": false,
+    "wake_up_on_time": false,
+    "sleep_on_time": false
+  },
+  "goals": [
+    "career",
+    "health",
+    "relationships"
+  ],
+  "free_text": "worst day of my life",
+  "long_reflection": "feeling like dying",
+  "derived": {
+    "sentiment": {
+      "polarity": -1.0,
+      "subjectivity": 1.0
+    },
+    "themes": [],
+    "flags": [
+      "low_energy",
+      "high_stress",
+      "consistency_concern"
+    ],
+    "summary": "Felt stressed energy level 1/10 struggled to show up - worst day of my life..."
+  }
+}

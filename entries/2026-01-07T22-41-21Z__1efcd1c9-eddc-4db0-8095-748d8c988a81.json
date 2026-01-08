@@ -1,0 +1,36 @@
+{
+  "id": "1efcd1c9-eddc-4db0-8095-748d8c988a81",
+  "timestamp": "2026-01-07T22:41:21.245414",
+  "device": "htadmin",
+  "emotion": "frustrated",
+  "energy": 1,
+  "showed_up": false,
+  "habits": {
+    "exercise": false,
+    "deep_work": false,
+    "meditation": false,
+    "reading": false,
+    "writing": false,
+    "wake_up_on_time": false,
+    "sleep_on_time": false
+  },
+  "goals": [
+    "career",
+    "health",
+    "relationships"
+  ],
+  "free_text": "not good day",
+  "long_reflection": "",
+  "derived": {
+    "sentiment": {
+      "polarity": -0.35,
+      "subjectivity": 0.6000000000000001
+    },
+    "themes": [],
+    "flags": [
+      "low_energy",
+      "consistency_concern"
+    ],
+    "summary": "Felt frustrated energy level 1/10 struggled to show up - not good day..."
+  }
+}
