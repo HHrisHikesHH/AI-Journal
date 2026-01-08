@@ -74,6 +74,31 @@ function HistoryView({ entries, onRefresh }) {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [filteredEntries]);
 
+  // Showed up streak
+  const showedUpStreak = useMemo(() => {
+    const sorted = [...filteredEntries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    let current = 0;
+    let longest = 0;
+    let tempLongest = 0;
+    
+    for (const entry of sorted) {
+      if (entry.showed_up) {
+        current++;
+        tempLongest++;
+        longest = Math.max(longest, tempLongest);
+      } else {
+        tempLongest = 0;
+        // Don't reset current streak if we're looking at past entries
+        // Only reset if this is the most recent entry
+        if (current > 0 && entry === sorted[0]) {
+          current = 0;
+        }
+      }
+    }
+    
+    return { current, longest };
+  }, [filteredEntries]);
+
   // Habit streaks
   const habitStreaks = useMemo(() => {
     const streaks = {};
@@ -516,6 +541,28 @@ function HistoryView({ entries, onRefresh }) {
                   <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#5f735f" strokeWidth={2} name="Show Up %" />
                 </ComposedChart>
               </ResponsiveContainer>
+            </div>
+
+            <div className="visualization">
+              <h3>Showed Up Streak</h3>
+              <div className="streak-item" style={{ 
+                background: showedUpStreak.current > 0 ? 'rgba(95, 115, 95, 0.1)' : 'rgba(255, 255, 255, 0.6)',
+                border: `2px solid ${showedUpStreak.current > 0 ? 'var(--sage-500)' : 'var(--sage-300)'}`
+              }}>
+                <div>
+                  <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>Showed Up</span>
+                  <span style={{ marginLeft: '12px', fontSize: '13px', color: 'var(--sage-500)' }}>
+                    Longest: {showedUpStreak.longest} days
+                  </span>
+                </div>
+                <span className="streak-count" style={{ 
+                  fontSize: '1.5rem', 
+                  fontWeight: 600,
+                  color: showedUpStreak.current > 0 ? 'var(--sage-700)' : 'var(--sage-400)'
+                }}>
+                  {showedUpStreak.current} days
+                </span>
+              </div>
             </div>
 
             <div className="visualization">

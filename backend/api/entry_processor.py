@@ -51,7 +51,7 @@ class EntryProcessor:
             if score > 0:
                 theme_scores[theme] = score
         
-        # Return top 3 themes
+        # Return top 3 themes (top_themes field)
         sorted_themes = sorted(theme_scores.items(), key=lambda x: x[1], reverse=True)
         return [theme for theme, _ in sorted_themes[:3]]
     
@@ -63,9 +63,8 @@ class EntryProcessor:
         emotion = entry.get('emotion', '').lower()
         energy = entry.get('energy', 5)
         
-        # Evening procrastination (if timestamp suggests evening and low energy)
-        # This is a simple heuristic - in production, you'd check actual timestamp
-        if energy < 4 and 'procrastinate' in text or 'avoid' in text:
+        # Evening procrastination (check for keywords in text)
+        if ('procrastinat' in text or 'late night' in text) and energy < 4:
             flags.append('evening_procrastination')
         
         # Low energy pattern

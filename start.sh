@@ -52,6 +52,10 @@ rag.rebuild_index()
 EOF
 cd ..
 
+# Generate weekly summary if it's a new week (runs in background)
+echo "Checking for weekly summary..."
+python3 scripts/weekly_summary.py > /dev/null 2>&1 || echo "Weekly summary generation skipped (will run on schedule)"
+
 # Start Django backend
 echo "Starting Django backend..."
 cd backend

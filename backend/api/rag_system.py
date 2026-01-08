@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 from django.conf import settings
 from sentence_transformers import SentenceTransformer
 import faiss
-from .llm_client import LLMClient
+from .llm_adapter import call_local_llm
 
 class RAGSystem:
     """RAG system for querying journal entries."""
@@ -15,7 +15,6 @@ class RAGSystem:
         self.embedding_model = None
         self.index = None
         self.entries = []
-        self.llm_client = LLMClient()
         self._load_embedding_model()
         self._load_or_create_index()
     
@@ -180,7 +179,8 @@ class RAGSystem:
         context_parts = []
         for i, entry in enumerate(relevant_entries):
             entry_date = entry.get('timestamp', '')[:10]  # YYYY-MM-DD
-            context_parts.append(f"Entry from {entry_date}:")
+            filename = f"{entry.get('timestamp', '').replace(':', '-').split('.')[0]}Z__{entry.get('id', '')}.json"
+            context_parts.append(f"Entry from {entry_date} ({filename}):")
             context_parts.append(f"  Emotion: {entry.get('emotion', 'N/A')}")
             context_parts.append(f"  Energy: {entry.get('energy', 'N/A')}")
             context_parts.append(f"  Showed up: {entry.get('showed_up', False)}")
@@ -197,17 +197,17 @@ class RAGSystem:
             prompt = self._build_query_prompt(query_text, context, config)
             
             try:
-                llm_response = self.llm_client.generate(prompt)
+                llm_response = call_local_llm(prompt, max_tokens=512, temp=0.2)
                 answer = self._parse_llm_response(llm_response)
             except Exception as e:
                 import traceback
                 print(f"LLM error: {e}")
                 print(f"LLM traceback: {traceback.format_exc()}")
                 answer = {
-                    'reality_check': 'Unable to generate response at this time.',
+                    'verdict': 'Unable to generate response at this time.',
                     'evidence': [],
                     'action': 'Please try again later.',
-                    'sign_off': 'Take care.'
+                    'confidence_estimate': 0
                 }
         except Exception as e:
             import traceback
@@ -215,10 +215,10 @@ class RAGSystem:
             print(f"Traceback: {traceback.format_exc()}")
             # Return a basic response if there's an error
             answer = {
-                'reality_check': 'Unable to process query due to a system error.',
+                'verdict': 'Unable to process query due to a system error.',
                 'evidence': [],
                 'action': 'Please try again later.',
-                'sign_off': 'Take care.'
+                'confidence_estimate': 0
             }
         
         # Build sources
@@ -242,7 +242,15 @@ class RAGSystem:
     
     def _build_query_prompt(self, query: str, context: str, config: Dict) -> str:
         """Build the prompt for query answering."""
-        system_prompt = """You are a gentle, supportive personal coach. Your role is to help someone understand their patterns and make small, sustainable changes. You must:
+        # Load prompt template
+        prompt_path = Path(__file__).parent.parent / 'prompts' / 'query_prompt.txt'
+        try:
+            with open(prompt_path, 'r') as f:
+                template = f.read()
+            return template.format(context=context, query=query)
+        except Exception:
+            # Fallback to inline prompt
+            system_prompt = """You are a gentle, supportive personal coach. Your role is to help someone understand their patterns and make small, sustainable changes. You must:
 - Never shame or judge
 - Present evidence neutrally
 - Give ONE small, actionable suggestion
@@ -251,30 +259,32 @@ class RAGSystem:
 - If data is insufficient, say so clearly
 
 Your response must follow this structure:
-REALITY_CHECK: [One sentence neutral observation]
+VERDICT: [One sentence neutral observation]
 EVIDENCE:
-- [Evidence item 1 with source date]
-- [Evidence item 2 with source date]
-- [Evidence item 3 with source date]
+- [Evidence item 1 with source filename]
+- [Evidence item 2 with source filename]
+- [Evidence item 3 with source filename]
 ACTION: [One small, specific action]
-SIGN_OFF: [Gentle closing phrase]"""
+CONFIDENCE_ESTIMATE: [Integer 0-100]
+
+Use only the CONTEXT provided below. Cite filenames. One-line verdict. Two evidence bullets with filenames. One micro-action. Confidence_estimate."""
         
-        user_prompt = f"""Context from journal entries:
+            user_prompt = f"""Context from journal entries:
 {context}
 
 User question: {query}
 
 Provide a gentle, supportive response based ONLY on the context above. If the context doesn't contain enough information, state that clearly."""
         
-        return f"{system_prompt}\n\n{user_prompt}"
+            return f"{system_prompt}\n\n{user_prompt}"
     
     def _parse_llm_response(self, response: str) -> Dict[str, Any]:
         """Parse LLM response into structured format."""
         result = {
-            'reality_check': '',
+            'verdict': '',
             'evidence': [],
             'action': '',
-            'sign_off': ''
+            'confidence_estimate': 0
         }
         
         lines = response.split('\n')
@@ -282,38 +292,45 @@ Provide a gentle, supportive response based ONLY on the context above. If the co
         
         for line in lines:
             line = line.strip()
-            if line.startswith('REALITY_CHECK:'):
-                result['reality_check'] = line.replace('REALITY_CHECK:', '').strip()
+            if line.startswith('VERDICT:'):
+                result['verdict'] = line.replace('VERDICT:', '').strip()
             elif line.startswith('EVIDENCE:'):
                 current_section = 'evidence'
             elif line.startswith('ACTION:'):
                 result['action'] = line.replace('ACTION:', '').strip()
                 current_section = None
-            elif line.startswith('SIGN_OFF:'):
-                result['sign_off'] = line.replace('SIGN_OFF:', '').strip()
+            elif line.startswith('CONFIDENCE_ESTIMATE:'):
+                try:
+                    result['confidence_estimate'] = int(line.replace('CONFIDENCE_ESTIMATE:', '').strip())
+                except:
+                    pass
                 current_section = None
             elif current_section == 'evidence' and line.startswith('-'):
                 result['evidence'].append(line[1:].strip())
         
         # Fallback if parsing fails
-        if not result['reality_check']:
-            result['reality_check'] = response[:200]
+        if not result['verdict']:
+            result['verdict'] = response[:200]
+        
+        # Calculate confidence if not provided
+        if result['confidence_estimate'] == 0:
+            result['confidence_estimate'] = min(100, 20 * len(result['evidence']))
         
         return result
     
     def _format_answer(self, answer: Dict[str, Any]) -> str:
         """Format structured answer as readable text."""
         parts = []
-        if answer.get('reality_check'):
-            parts.append(answer['reality_check'])
+        if answer.get('verdict'):
+            parts.append(answer['verdict'])
         if answer.get('evidence'):
             parts.append('\nEvidence:')
             for ev in answer['evidence']:
                 parts.append(f"  • {ev}")
         if answer.get('action'):
             parts.append(f"\nSuggested action: {answer['action']}")
-        if answer.get('sign_off'):
-            parts.append(f"\n{answer['sign_off']}")
+        if answer.get('confidence_estimate'):
+            parts.append(f"\nConfidence: {answer['confidence_estimate']}%")
         
         return '\n'.join(parts) if parts else "Unable to generate response."
 

@@ -141,6 +141,93 @@ class JournalAPITestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         self.assertIn('status', data)
+        
+        # Verify index file was created
+        index_path = settings.EMBEDDINGS_DIR / 'faiss_index.bin'
+        self.assertTrue(index_path.exists(), "FAISS index file should be created")
+    
+    def test_entry_create_validation(self):
+        """Test entry creation with validation (free_text <= 200 chars)."""
+        # Test with valid entry
+        entry_data = {
+            'emotion': 'content',
+            'energy': 7,
+            'showed_up': True,
+            'habits': {'exercise': True},
+            'goals': [],
+            'free_text': 'A' * 200,  # Exactly 200 chars
+            'long_reflection': ''
+        }
+        
+        response = self.client.post(
+            '/api/entry/',
+            data=json.dumps(entry_data),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 201)
+        
+        # Test with invalid entry (free_text > 200 chars)
+        entry_data['free_text'] = 'A' * 201  # 201 chars
+        response = self.client.post(
+            '/api/entry/',
+            data=json.dumps(entry_data),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertIn('error', data)
+        self.assertIn('200', data['error'])
+    
+    def test_query_basic(self):
+        """Test basic query functionality with seeded entries."""
+        # Create multiple test entries
+        entries = [
+            {
+                'emotion': 'motivated',
+                'energy': 8,
+                'showed_up': True,
+                'habits': {'exercise': True, 'deep_work': True},
+                'goals': ['career'],
+                'free_text': 'Great day, made progress on project',
+                'long_reflection': ''
+            },
+            {
+                'emotion': 'tired',
+                'energy': 3,
+                'showed_up': False,
+                'habits': {'exercise': False},
+                'goals': ['health'],
+                'free_text': 'Feeling exhausted, need rest',
+                'long_reflection': ''
+            }
+        ]
+        
+        for entry_data in entries:
+            response = self.client.post(
+                '/api/entry/',
+                data=json.dumps(entry_data),
+                content_type='application/json'
+            )
+            self.assertEqual(response.status_code, 201)
+        
+        # Rebuild index to include new entries
+        self.client.post('/api/rebuild_index/')
+        
+        # Query
+        query_data = {'query': 'What patterns do you see?'}
+        response = self.client.post(
+            '/api/query/',
+            data=json.dumps(query_data),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn('answer', data)
+        self.assertIsInstance(data['answer'], str)
+        self.assertGreater(len(data['answer']), 0, "Answer should not be empty")
+        self.assertIn('sources', data)
+        self.assertIsInstance(data['sources'], list)
 
 if __name__ == '__main__':
     unittest.main()

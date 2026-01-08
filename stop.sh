@@ -54,6 +54,13 @@ if command -v lsof &> /dev/null; then
     done
 fi
 
+# Create backup of entries
+echo "Creating backup of entries..."
+mkdir -p backups
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+tar -czf "backups/entries_backup_${TIMESTAMP}.tar.gz" entries/ 2>/dev/null || echo "Backup creation failed, continuing..."
+echo "Backup created: backups/entries_backup_${TIMESTAMP}.tar.gz"
+
 # Git sync (commit and push)
 echo "Syncing entries with git..."
 python3 scripts/git_sync.py --push || echo "Git push failed, but entries are saved locally"

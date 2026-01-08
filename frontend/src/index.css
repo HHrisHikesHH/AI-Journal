@@ -573,3 +573,274 @@ textarea:focus-visible {
   outline: 2px solid var(--sage-500);
   outline-offset: 2px;
 }
+
+/* Quick Entry Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 30px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-strong);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  animation: slideUp 0.3s ease-out;
+  position: relative;
+  z-index: 1100;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: var(--sage-600);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: var(--sage-100);
+  color: var(--sage-800);
+}
+
+.quick-entry-modal .form-group {
+  margin-bottom: 20px;
+}
+
+.quick-entry-modal .char-count {
+  float: right;
+  font-size: 12px;
+  color: var(--sage-500);
+  font-weight: 300;
+}
+
+.keyboard-hint {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--sage-200);
+  font-size: 12px;
+  color: var(--sage-500);
+  text-align: center;
+}
+
+.keyboard-hint kbd {
+  background: var(--sage-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 11px;
+  border: 1px solid var(--sage-300);
+}
+
+/* App Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.quick-entry-btn {
+  background: var(--sage-500);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-entry-btn:hover {
+  background: var(--sage-600);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+}
+
+.quick-entry-btn kbd {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+/* Insight Card */
+.insight-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  animation: slideUp 0.5s ease-out;
+}
+
+.insight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.insight-header h3 {
+  font-family: 'Crimson Text', serif;
+  color: var(--sage-700);
+  font-size: 1.5rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.refresh-btn {
+  background: var(--sage-100);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--sage-600);
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background: var(--sage-200);
+  transform: rotate(90deg);
+}
+
+.insight-verdict {
+  font-size: 1.1rem;
+  color: var(--sage-700);
+  margin-bottom: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.insight-evidence {
+  margin-bottom: 16px;
+}
+
+.insight-evidence strong {
+  color: var(--sage-700);
+  font-weight: 500;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.insight-evidence ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.insight-evidence li {
+  padding: 8px 0;
+  padding-left: 20px;
+  position: relative;
+  color: var(--sage-600);
+  line-height: 1.6;
+}
+
+.insight-evidence li:before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--sage-400);
+  font-size: 20px;
+}
+
+.insight-action {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: rgba(157, 181, 164, 0.1);
+  border-radius: 12px;
+  border-left: 3px solid var(--soft-green);
+}
+
+.insight-action strong {
+  color: var(--sage-700);
+  font-weight: 500;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.insight-action p {
+  color: var(--sage-600);
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.btn-small {
+  background: var(--sage-500);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-small:hover {
+  background: var(--sage-600);
+  transform: translateY(-1px);
+}
+
+.insight-confidence {
+  font-size: 12px;
+  color: var(--sage-500);
+  font-style: italic;
+  text-align: right;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .quick-entry-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .modal-content {
+    padding: 20px;
+    width: 95%;
+  }
+}
