@@ -12,7 +12,7 @@ const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 function App() {
   const [activeTab, setActiveTab] = useState('entry');
   const [entries, setEntries] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // const [loading, setLoading] = useState(false);
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
 
   useEffect(() => {

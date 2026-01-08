@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  LineChart, Line, AreaChart, Area, BarChart, Bar, 
+  Line, AreaChart, Area, BarChart, Bar, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-  ComposedChart, ScatterChart, Scatter, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer 
+  ComposedChart, ResponsiveContainer 
 } from 'recharts';
-import { format, subDays, parseISO, getDay, getHours } from 'date-fns';
+import { format, subDays, parseISO, getDay } from 'date-fns';
 import axios from 'axios';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
@@ -15,7 +14,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function HistoryView({ entries, onRefresh }) {
   const [timeRange, setTimeRange] = useState('30');
   const [habitsList, setHabitsList] = useState([]);
-  const [emotionsList, setEmotionsList] = useState([]);
+  // const [emotionsList, setEmotionsList] = useState([]);
   const [configLoading, setConfigLoading] = useState(true);
   const [activeInsightTab, setActiveInsightTab] = useState('overview');
 
@@ -26,7 +25,7 @@ function HistoryView({ entries, onRefresh }) {
         const response = await axios.get(`${API_BASE}/config/`);
         const config = response.data;
         setHabitsList(config.habits || []);
-        setEmotionsList(config.emotions || []);
+        // setEmotionsList(config.emotions || []);
         setConfigLoading(false);
       } catch (err) {
         console.error('Error loading config:', err);
