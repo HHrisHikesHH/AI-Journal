@@ -32,7 +32,6 @@ rag_project/
 │   │   │   ├── InsightCard.js # Daily insight display
 │   │   │   ├── QueryInterface.js # Query/guidance interface
 │   │   │   ├── HistoryView.js # Entry history and search
-│   │   │   └── QuickEntryModal.js # Quick entry modal (Ctrl+K)
 │   │   ├── App.js             # Main app component
 │   │   ├── index.js           # React entry point
 │   │   └── utils/

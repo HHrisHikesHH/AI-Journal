@@ -171,12 +171,6 @@ def query(request):
         try:
             rag = get_rag_system()
             result = rag.query(query_text)
-            
-            # Extract action from result and create action item if present
-            if result.get('structured', {}).get('action'):
-                action_text = result['structured']['action']
-                create_action(action_text, source_query=query_text)
-            
             return JsonResponse(result)
         except Exception as rag_error:
             import traceback

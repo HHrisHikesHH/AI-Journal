@@ -637,16 +637,6 @@ textarea:focus-visible {
   color: var(--sage-800);
 }
 
-.quick-entry-modal .form-group {
-  margin-bottom: 20px;
-}
-
-.quick-entry-modal .char-count {
-  float: right;
-  font-size: 12px;
-  color: var(--sage-500);
-  font-weight: 300;
-}
 
 .keyboard-hint {
   margin-top: 16px;
@@ -674,33 +664,6 @@ textarea:focus-visible {
   margin-bottom: 24px;
 }
 
-.quick-entry-btn {
-  background: var(--sage-500);
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: var(--shadow-soft);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.quick-entry-btn:hover {
-  background: var(--sage-600);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-medium);
-}
-
-.quick-entry-btn kbd {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-}
 
 /* Insight Card */
 .insight-card {
@@ -882,10 +845,6 @@ textarea:focus-visible {
     gap: 16px;
   }
   
-  .quick-entry-btn {
-    width: 100%;
-    justify-content: center;
-  }
   
   .modal-content {
     padding: 20px;

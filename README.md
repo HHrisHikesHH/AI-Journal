@@ -86,7 +86,7 @@ The app will:
 
 1. **Open your browser** and go to: http://localhost:3000
 2. **Create your first entry:**
-   - Click "New Entry" or press `Ctrl+K` (or `Cmd+K` on Mac)
+   - Click "New Entry" or use the "Reflect" tab
    - Select your emotion
    - Rate your energy (1-10)
    - Toggle "Showed Up" if you completed your daily practice
@@ -174,7 +174,7 @@ Example:
 - **Evidence-based observations** with source citations
 
 ### Journal Entries
-- **Quick entry** with `Ctrl+K` (or `Cmd+K` on Mac)
+- **Entry creation** through the Reflect tab
 - **Track emotions, energy, and habits**
 - **Optional longer reflections**
 - **All data stored locally** on your device

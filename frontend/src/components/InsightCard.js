@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 
-function InsightCard({ onActionCreated }) {
+function InsightCard() {
   const [insight, setInsight] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -218,26 +218,6 @@ function InsightCard({ onActionCreated }) {
     }
   };
 
-  const handleCreateAction = async () => {
-    if (!insight?.action) return;
-    
-    try {
-      console.log('[InsightCard] Creating action item:', insight.action);
-      const response = await axios.post(`${API_BASE}/action/`, {
-        text: insight.action,
-        source_query: 'Daily insight'
-      });
-      console.log('[InsightCard] Action item created:', response.data);
-      if (onActionCreated) {
-        onActionCreated();
-      }
-      // Show a more user-friendly notification
-      alert(`✅ Action item created!\n\n"${insight.action}"\n\nYou can view and manage action items in the Insights tab.`);
-    } catch (err) {
-      console.error('[InsightCard] Error creating action:', err);
-      alert('Failed to create action item. Please try again.');
-    }
-  };
 
   if (loading) {
     return (
@@ -317,15 +297,6 @@ function InsightCard({ onActionCreated }) {
         </div>
       )}
       
-      {insight.action && (
-        <div className="insight-action">
-          <strong>Suggested Action:</strong>
-          <p>{insight.action}</p>
-          <button onClick={handleCreateAction} className="btn-small">
-            Create Action Item
-          </button>
-        </div>
-      )}
       
       {insight.confidence_estimate !== undefined && (
         <div className="insight-confidence">
