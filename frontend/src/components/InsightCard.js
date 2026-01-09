@@ -8,11 +8,12 @@ function InsightCard({ onActionCreated }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isPolling, setIsPolling] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const pollIntervalRef = useRef(null);
   const hasStartedPollingRef = useRef(false);
 
   useEffect(() => {
-    loadInsight();
+    loadInsight(false); // Initial load, no force refresh
   }, []);
 
   // Poll for LLM response if we got a fallback with LLM processing
@@ -30,8 +31,8 @@ function InsightCard({ onActionCreated }) {
       return;
     }
     
-    // If we already have LLM response, stop polling if active
-    if (insight.source === 'llm') {
+    // If we already have LLM response and not refreshing, stop polling if active
+    if (insight.source === 'llm' && !isRefreshing && !insight.llm_processing) {
       if (pollIntervalRef.current) {
         console.log('[InsightCard] ✅ LLM response available, stopping polling');
         clearInterval(pollIntervalRef.current);
@@ -42,8 +43,12 @@ function InsightCard({ onActionCreated }) {
       return;
     }
     
-    // Start polling if we have fallback and LLM is processing, but only once
-    if (insight.source === 'fallback' && insight.llm_processing && !hasStartedPollingRef.current) {
+    // Start polling if:
+    // 1. We have fallback and LLM is processing, OR
+    // 2. We're refreshing and LLM is processing (even if we had an LLM response before)
+    const shouldPoll = (insight.source === 'fallback' || isRefreshing) && insight.llm_processing && !hasStartedPollingRef.current;
+    
+    if (shouldPoll) {
       console.log('[InsightCard] 🔄 LLM processing detected! Starting automatic polling...');
       console.log('[InsightCard] 📊 Current insight:', {
         source: insight.source,
@@ -88,18 +93,11 @@ function InsightCard({ onActionCreated }) {
             }
             hasStartedPollingRef.current = false;
             setIsPolling(false);
+            setIsRefreshing(false); // Re-enable refresh button
             
-            // Update insight state using functional update to ensure we get the latest
-            setInsight(prevInsight => {
-              // Only update if we don't already have an LLM response
-              if (prevInsight?.source === 'llm') {
-                console.log('[InsightCard] ℹ️ Already have LLM response, skipping update');
-                return prevInsight;
-              }
-              console.log('[InsightCard] ✅ Setting new LLM insight in state');
-              return response.data;
-            });
-            console.log('[InsightCard] ✅ UI update triggered! Polling stopped.');
+            // Always update with new LLM response (even if we had one before - this is a refresh)
+            setInsight(response.data);
+            console.log('[InsightCard] ✅ UI updated with fresh LLM response! Polling stopped.');
             return;
           } else if (response.data && responseSource === 'fallback' && !responseProcessing) {
             // LLM processing stopped but no result - stop polling
@@ -152,26 +150,71 @@ function InsightCard({ onActionCreated }) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [insight?.source, insight?.llm_processing]); // Only depend on source and llm_processing to avoid unnecessary re-runs
+  }, [insight?.source, insight?.llm_processing, isRefreshing]); // Include isRefreshing to handle refresh polling
 
-  const loadInsight = async () => {
+  const loadInsight = async (forceRefresh = false) => {
     try {
-      console.log('[InsightCard] Loading insight...');
-      setLoading(true);
+      if (forceRefresh) {
+        console.log('[InsightCard] 🔄 Refresh button clicked - forcing new insight generation');
+        setIsRefreshing(true);
+        // Keep current insight visible while generating new one
+      } else {
+        console.log('[InsightCard] Loading insight...');
+        setLoading(true);
+      }
+      
       setError('');
       setIsPolling(false);
-      console.log('[InsightCard] Making API call to /insight/on_open');
-      const response = await axios.get(`${API_BASE}/insight/on_open/`, { timeout: 60000 });
-      console.log('[InsightCard] Insight response received:', response.data);
-      setInsight(response.data);
-      console.log('[InsightCard] Insight loaded successfully, source:', response.data.source);
+      
+      const url = forceRefresh 
+        ? `${API_BASE}/insight/on_open/?force_refresh=true`
+        : `${API_BASE}/insight/on_open/`;
+      
+      console.log('[InsightCard] Making API call to', url);
+      const response = await axios.get(url, { timeout: 60000 });
+      console.log('[InsightCard] Insight response received:', {
+        source: response.data?.source,
+        llm_processing: response.data?.llm_processing,
+        verdict: response.data?.verdict?.substring(0, 50) + '...'
+      });
+      
+      // Handle refresh scenarios
+      if (forceRefresh) {
+        if (response.data?.source === 'llm' && !response.data?.llm_processing) {
+          // Got fresh LLM response immediately (unlikely but possible)
+          console.log('[InsightCard] ✅ Got fresh LLM response immediately');
+          setInsight(response.data);
+          setIsRefreshing(false);
+        } else if (response.data?.llm_processing) {
+          // LLM is generating new response - keep current insight visible and poll
+          console.log('[InsightCard] ⏳ LLM is generating new response, keeping current insight visible');
+          console.log('[InsightCard] ⏳ Will poll for update - current insight stays on screen');
+          // Don't update insight yet - keep showing the old one
+          // Mark current insight as being refreshed by updating llm_processing flag
+          setInsight(prev => prev ? { ...prev, llm_processing: true } : response.data);
+          // Polling will be handled by the useEffect and update when ready
+        } else {
+          // Got fallback without processing - shouldn't happen on refresh, but handle it
+          console.log('[InsightCard] ⚠️ Got fallback on refresh, setting as new insight');
+          setInsight(response.data);
+          setIsRefreshing(false);
+        }
+      } else {
+        // Normal load - update insight state
+        setInsight(response.data);
+        console.log('[InsightCard] Insight loaded successfully, source:', response.data.source);
+      }
+      
     } catch (err) {
       console.error('[InsightCard] Error loading insight:', err);
       console.error('[InsightCard] Error response:', err.response?.data);
       console.error('[InsightCard] Error status:', err.response?.status);
       setError(err.response?.data?.error || 'Unable to load insight');
+      setIsRefreshing(false);
     } finally {
-      setLoading(false);
+      if (!forceRefresh) {
+        setLoading(false);
+      }
     }
   };
 
@@ -179,16 +222,20 @@ function InsightCard({ onActionCreated }) {
     if (!insight?.action) return;
     
     try {
-      await axios.post(`${API_BASE}/action/`, {
+      console.log('[InsightCard] Creating action item:', insight.action);
+      const response = await axios.post(`${API_BASE}/action/`, {
         text: insight.action,
         source_query: 'Daily insight'
       });
+      console.log('[InsightCard] Action item created:', response.data);
       if (onActionCreated) {
         onActionCreated();
       }
-      alert('Action item created!');
+      // Show a more user-friendly notification
+      alert(`✅ Action item created!\n\n"${insight.action}"\n\nYou can view and manage action items in the Insights tab.`);
     } catch (err) {
-      console.error('Error creating action:', err);
+      console.error('[InsightCard] Error creating action:', err);
+      alert('Failed to create action item. Please try again.');
     }
   };
 
@@ -236,9 +283,20 @@ function InsightCard({ onActionCreated }) {
               ⏳ AI Analyzing... {isPolling && '(checking...)'}
             </span>
           )}
+          {isRefreshing && insight?.source === 'llm' && (
+            <span className="insight-badge processing-badge" title="Generating fresh insight...">
+              🔄 Refreshing...
+            </span>
+          )}
         </div>
-        <button onClick={loadInsight} className="refresh-btn" aria-label="Refresh" disabled={loading}>
-          {loading ? '⟳' : '↻'}
+        <button 
+          onClick={() => loadInsight(true)} 
+          className="refresh-btn" 
+          aria-label="Refresh" 
+          disabled={loading || isRefreshing || (insight?.llm_processing === true)}
+          title={isRefreshing || insight?.llm_processing ? "Generating new insight..." : "Refresh insight"}
+        >
+          {(loading || isRefreshing || insight?.llm_processing) ? '⟳' : '↻'}
         </button>
       </div>
       

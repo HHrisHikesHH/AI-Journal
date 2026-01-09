@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getConfig } from '../utils/configCache';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 
@@ -24,10 +25,9 @@ function QuickEntryModal({ isOpen, onClose, onEntryCreated }) {
       console.log('[QuickEntry] Modal opened, fetching config...');
       const fetchConfig = async () => {
         try {
-          console.log('[QuickEntry] Making API call to /config/...');
-          const response = await axios.get(`${API_BASE}/config/`);
-          console.log('[QuickEntry] Config response received:', response.data);
-          const config = response.data;
+              console.log('[QuickEntry] Loading config from cache...');
+          const config = await getConfig();
+          console.log('[QuickEntry] Config loaded:', config);
           const emotionsList = config.emotions || ALLOWED_EMOTIONS;
           console.log('[QuickEntry] Setting emotions:', emotionsList);
           setEmotions(emotionsList);

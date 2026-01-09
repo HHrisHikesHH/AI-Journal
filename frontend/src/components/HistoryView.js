@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { format, subDays, parseISO, getDay } from 'date-fns';
 import axios from 'axios';
+import { getConfig } from '../utils/configCache';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 
@@ -18,12 +19,12 @@ function HistoryView({ entries, onRefresh }) {
   const [configLoading, setConfigLoading] = useState(true);
   const [activeInsightTab, setActiveInsightTab] = useState('overview');
 
-  // Fetch config from backend
+  // Fetch config from cache or API
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const response = await axios.get(`${API_BASE}/config/`);
-        const config = response.data;
+        setConfigLoading(true);
+        const config = await getConfig();
         setHabitsList(config.habits || []);
         // setEmotionsList(config.emotions || []);
         setConfigLoading(false);
@@ -68,7 +69,7 @@ function HistoryView({ entries, onRefresh }) {
       .map(d => ({ 
         ...d, 
         rate: d.total > 0 ? (d.showedUp / d.total) * 100 : 0,
-        avgEnergy: d.total > 0 ? (d.energySum / d.total).toFixed(1) : 0
+        avgEnergy: d.total > 0 ? parseFloat((d.energySum / d.total).toFixed(1)) : 0
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [filteredEntries]);
@@ -176,10 +177,10 @@ function HistoryView({ entries, onRefresh }) {
     return Object.entries(emotionStats)
       .map(([emotion, stats]) => ({
         emotion,
-        avgEnergy: (stats.sum / stats.count).toFixed(1),
+        avgEnergy: parseFloat((stats.sum / stats.count).toFixed(1)),
         count: stats.count
       }))
-      .sort((a, b) => parseFloat(b.avgEnergy) - parseFloat(a.avgEnergy));
+      .sort((a, b) => b.avgEnergy - a.avgEnergy);
   }, [filteredEntries]);
 
   // Energy trend over time
@@ -196,7 +197,7 @@ function HistoryView({ entries, onRefresh }) {
     return Object.values(byDate)
       .map(d => ({ 
         date: d.date,
-        avgEnergy: (d.energySum / d.count).toFixed(1)
+        avgEnergy: parseFloat((d.energySum / d.count).toFixed(1))
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [filteredEntries]);
@@ -219,10 +220,10 @@ function HistoryView({ entries, onRefresh }) {
       });
       
       impact[habit] = {
-        with: withHabit.count > 0 ? (withHabit.sum / withHabit.count).toFixed(1) : 0,
-        without: withoutHabit.count > 0 ? (withoutHabit.sum / withoutHabit.count).toFixed(1) : 0,
+        with: withHabit.count > 0 ? parseFloat((withHabit.sum / withHabit.count).toFixed(1)) : 0,
+        without: withoutHabit.count > 0 ? parseFloat((withoutHabit.sum / withoutHabit.count).toFixed(1)) : 0,
         diff: withHabit.count > 0 && withoutHabit.count > 0 
-          ? ((withHabit.sum / withHabit.count) - (withoutHabit.sum / withoutHabit.count)).toFixed(1) 
+          ? parseFloat(((withHabit.sum / withHabit.count) - (withoutHabit.sum / withoutHabit.count)).toFixed(1))
           : 0
       };
     });
@@ -454,7 +455,7 @@ function HistoryView({ entries, onRefresh }) {
     // Highest energy emotion
     if (energyByEmotion.length > 0) {
       const highest = energyByEmotion[0];
-      insights.push(`Highest energy emotion: ${highest.emotion} (avg ${highest.avgEnergy}/10)`);
+      insights.push(`Highest energy emotion: ${highest.emotion} (avg ${highest.avgEnergy.toFixed(1)}/10)`);
     }
     
     // Best habit for energy
@@ -657,7 +658,11 @@ function HistoryView({ entries, onRefresh }) {
               {Object.entries(habitEnergyImpact).length > 0 ? (
                 <div>
                   {Object.entries(habitEnergyImpact)
-                    .sort((a, b) => parseFloat(b[1].diff) - parseFloat(a[1].diff))
+                    .sort((a, b) => {
+                      const diffA = typeof a[1].diff === 'number' ? a[1].diff : parseFloat(a[1].diff);
+                      const diffB = typeof b[1].diff === 'number' ? b[1].diff : parseFloat(b[1].diff);
+                      return diffB - diffA;
+                    })
                     .map(([habit, impact]) => (
                       <div key={habit} style={{
                         padding: '16px',
@@ -670,14 +675,14 @@ function HistoryView({ entries, onRefresh }) {
                           <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>{habit.replace(/_/g, ' ')}</span>
                           <span style={{ 
                             fontWeight: 600, 
-                            color: parseFloat(impact.diff) > 0 ? 'var(--sage-600)' : '#b8865a',
+                            color: (typeof impact.diff === 'number' ? impact.diff : parseFloat(impact.diff)) > 0 ? 'var(--sage-600)' : '#b8865a',
                             fontSize: '16px'
                           }}>
-                            {parseFloat(impact.diff) > 0 ? '+' : ''}{impact.diff}
+                            {(typeof impact.diff === 'number' ? impact.diff : parseFloat(impact.diff)) > 0 ? '+' : ''}{typeof impact.diff === 'number' ? impact.diff.toFixed(1) : impact.diff}
                           </span>
                         </div>
                         <div style={{ fontSize: '13px', color: 'var(--sage-500)' }}>
-                          With: {impact.with}/10 | Without: {impact.without}/10
+                          With: {typeof impact.with === 'number' ? impact.with.toFixed(1) : impact.with}/10 | Without: {typeof impact.without === 'number' ? impact.without.toFixed(1) : impact.without}/10
                         </div>
                       </div>
                     ))}

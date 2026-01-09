@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getConfig } from '../utils/configCache';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000/api';
 
@@ -11,12 +12,12 @@ function QueryInterface() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch config from backend
+  // Fetch config from cache or API
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const response = await axios.get(`${API_BASE}/config/`);
-        const config = response.data;
+        setConfigLoading(true);
+        const config = await getConfig();
         setSuggestedQuestions(config.reflection_questions || []);
         setConfigLoading(false);
       } catch (err) {

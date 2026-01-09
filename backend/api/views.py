@@ -11,7 +11,8 @@ from django.conf import settings
 from .rag_system import RAGSystem
 from .entry_processor import EntryProcessor
 from .action_items import create_action, get_actions, update_action, delete_action
-from .llm_adapter import call_local_llm
+from .llm_adapter import call_local_llm, get_model_context_window, ensure_model_loaded
+from .prompt_utils import truncate_prompt_to_fit
 
 rag_system = None
 last_insight_date = None
@@ -263,7 +264,7 @@ def insight_on_open(request):
     import logging
     logger = logging.getLogger(__name__)
     
-    global last_insight_date, last_insight
+    global last_insight_date, last_insight, _llm_processing
     
     logger.info("[Insight] Insight on_open endpoint called")
     today = datetime.now().date()
@@ -272,18 +273,59 @@ def insight_on_open(request):
     # Check if user wants to force refresh (for testing polling)
     force_refresh = request.GET.get('force_refresh', '').lower() == 'true'
     
+    # If force refresh, reset LLM processing flag to allow new LLM call
+    if force_refresh:
+        logger.info("[Insight] Force refresh requested, resetting LLM processing flag")
+        _llm_processing = False
+    
     # Return cached insight if already generated today (unless force refresh)
     if not force_refresh and last_insight_date == today and last_insight:
-        logger.info("[Insight] Returning cached insight from today")
+        logger.debug("[Insight] Cache check: last_insight_date={}, today={}, _llm_processing={}".format(
+            last_insight_date, today, _llm_processing))
+        
         # Ensure source field is set
         if 'source' not in last_insight:
             last_insight['source'] = 'llm' if last_insight.get('evidence') and any('json' in str(e) for e in last_insight.get('evidence', [])) else 'fallback'
-        if 'llm_processing' not in last_insight:
+        
+        # If we have a cached LLM response, return it immediately
+        if last_insight.get('source') == 'llm':
+            logger.info("[Insight] Returning cached LLM insight")
             last_insight['llm_processing'] = False
+            return JsonResponse(last_insight)
+        
+        # If we have a fallback, check LLM processing status
+        if last_insight.get('source') == 'fallback':
+            if _llm_processing:
+                # LLM is still processing - return fallback with processing flag
+                logger.debug("[Insight] LLM still processing, returning fallback with processing flag")
+                last_insight['llm_processing'] = True
+                return JsonResponse(last_insight)
+            else:
+                # LLM processing completed - check if we have an LLM response now
+                # (This handles the case where LLM just completed but cache wasn't updated yet)
+                # Actually, if LLM completed, last_insight should have been updated
+                # So if we're here with a fallback and LLM is not processing, 
+                # it means LLM failed or returned invalid response
+                logger.debug("[Insight] LLM processing completed, returning fallback (no LLM response available)")
+                last_insight['llm_processing'] = False
+                return JsonResponse(last_insight)
+        
+        # Default: return cached insight
+        logger.info("[Insight] Returning cached insight from today")
         return JsonResponse(last_insight)
     
     try:
         logger.info("[Insight] Generating new insight...")
+        
+        # Ensure model is loaded in main thread BEFORE doing anything else
+        # This is critical - llama-cpp-python requires model loading in main thread
+        logger.info("[Insight] Ensuring model is loaded in main thread...")
+        model_loaded = ensure_model_loaded()
+        if model_loaded:
+            logger.info("[Insight] ✅ Model loaded successfully in main thread")
+        else:
+            logger.warning("[Insight] ⚠️ Model not loaded in main thread, will use fallback only")
+        
         try:
             rag = get_rag_system()
             logger.debug("[Insight] RAG system loaded")
@@ -297,7 +339,7 @@ def insight_on_open(request):
             else:
                 raise
         
-        # Get last 7 days of entries (don't need RAG for this)
+        # Get last 7 days of entries (use entries for recent data, summaries for older context if needed)
         cutoff_date = datetime.now() - timedelta(days=7)
         logger.debug(f"[Insight] Loading entries from last 7 days (cutoff: {cutoff_date})")
         entries = []
@@ -317,6 +359,9 @@ def insight_on_open(request):
         
         logger.info(f"[Insight] Loaded {len(entries)} entries from last 7 days")
         
+        # Note: For daily insights, we use recent entries only (< 7 days)
+        # Summaries are used in query/search endpoints for older data (> 30 days)
+        
         if len(entries) < 1:
             logger.info("[Insight] No entries found, returning default message")
             return JsonResponse({
@@ -326,10 +371,14 @@ def insight_on_open(request):
                 'confidence_estimate': 0
             })
         
-        # Build context
+        # Build context (limit entries to prevent context overflow)
         logger.debug("[Insight] Building context from entries...")
+        from .prompt_utils import limit_entries_for_context
+        # Limit to 8 entries max, 150 chars per entry to ensure we fit in context window
+        limited_entries = limit_entries_for_context(entries, max_entries=8, max_chars_per_entry=150)
+        
         context_parts = []
-        for entry in entries[:10]:  # Use up to 10 most recent
+        for entry in limited_entries:
             entry_date = entry.get('timestamp', '')[:10]
             filename = f"{entry.get('timestamp', '').replace(':', '-').split('.')[0]}Z__{entry.get('id', '')}.json"
             context_parts.append(f"Entry from {entry_date} ({filename}):")
@@ -337,47 +386,110 @@ def insight_on_open(request):
             context_parts.append(f"  Energy: {entry.get('energy', 'N/A')}")
             context_parts.append(f"  Showed up: {entry.get('showed_up', False)}")
             if entry.get('free_text'):
+                # free_text already truncated by limit_entries_for_context
                 context_parts.append(f"  Note: {entry.get('free_text')}")
         
         context = '\n'.join(context_parts)
-        logger.debug(f"[Insight] Context built ({len(context)} chars)")
+        logger.debug(f"[Insight] Context built ({len(context)} chars, {len(limited_entries)} entries)")
         
-        # Load prompt template
+        # Load prompt template - optimize for token usage
         prompt_path = Path(__file__).parent.parent / 'prompts' / 'system_prompt.txt'
         logger.debug(f"[Insight] Loading prompt from {prompt_path}")
         try:
             with open(prompt_path, 'r') as f:
-                system_prompt = f.read()
-            logger.debug(f"[Insight] System prompt loaded ({len(system_prompt)} chars)")
+                system_instruction = f.read().strip()
+            logger.debug(f"[Insight] System instruction loaded ({len(system_instruction)} chars)")
         except Exception as e:
             logger.error(f"[Insight] Error loading prompt template: {e}")
             raise
         
-        user_prompt = f"""Context from recent journal entries:
-{context}
-
-Provide one neutral observation and one micro-action based on the patterns above."""
+        # Optimize context: limit to most recent/relevant entries (token optimization)
+        # Limit context to ~800 chars (200 tokens) to keep costs down
+        max_context_chars = 800
+        if len(context) > max_context_chars:
+            logger.debug(f"[Insight] Truncating context from {len(context)} to {max_context_chars} chars for token optimization")
+            # Keep the most recent entries (last part of context)
+            context = context[-max_context_chars:]
         
-        full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        logger.debug(f"[Insight] Full prompt prepared ({len(full_prompt)} chars)")
+        # User prompt - concise for token efficiency
+        user_prompt = f"Context:\n{context}\n\nProvide insight in the required format."
         
-        # Generate fast fallback immediately
+        # For Gemini: use system instruction separately (more efficient)
+        # For local model: combine as before
+        from .llm_adapter import _using_gemini
+        if _using_gemini():
+            # Gemini: system instruction separate, user content is just context
+            full_prompt = user_prompt
+        else:
+            # Local model: combine as before
+            full_prompt = f"{system_instruction}\n\n{user_prompt}"
+            # Truncate for local model context window
+            try:
+                max_context_window = get_model_context_window()
+                from .prompt_utils import truncate_prompt_to_fit
+                full_prompt = truncate_prompt_to_fit(
+                    system_instruction,
+                    user_prompt,
+                    max_context_window,
+                    max_tokens_to_generate=200,
+                    safety_buffer=50
+                )
+            except Exception as truncate_error:
+                logger.warning(f"[Insight] Error truncating prompt: {truncate_error}, using original")
+                full_prompt = f"{system_instruction}\n\n{user_prompt}"
+        
+        logger.debug(f"[Insight] Final prompt length: {len(full_prompt)} chars (estimated {len(full_prompt) // 4} tokens)")
+        
+        # Generate fast fallback immediately with more meaningful patterns
         if len(entries) > 0:
             showed_up_count = sum(1 for e in entries if e.get('showed_up', False))
-            recent_emotions = [e.get('emotion', 'unknown') for e in entries[:5]]
+            showed_up_rate = (showed_up_count / len(entries) * 100) if entries else 0
+            
+            # Calculate emotion frequency from ALL entries
             emotion_counts = {}
-            for em in recent_emotions:
-                emotion_counts[em] = emotion_counts.get(em, 0) + 1
+            for e in entries:
+                emotion = e.get('emotion', 'unknown')
+                emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
             top_emotion = max(emotion_counts.items(), key=lambda x: x[1])[0] if emotion_counts else 'unknown'
+            
+            # Calculate average energy
+            total_energy = sum(e.get('energy', 5) for e in entries)
+            avg_energy = total_energy / len(entries) if entries else 5
+            
+            # Find energy pattern
+            energy_trend = 'stable'
+            if len(entries) >= 3:
+                recent_energy = [e.get('energy', 5) for e in entries[:3]]
+                older_energy = [e.get('energy', 5) for e in entries[-3:]]
+                if len(recent_energy) > 0 and len(older_energy) > 0:
+                    recent_avg = sum(recent_energy) / len(recent_energy)
+                    older_avg = sum(older_energy) / len(older_energy)
+                    if recent_avg > older_avg + 1:
+                        energy_trend = 'increasing'
+                    elif recent_avg < older_avg - 1:
+                        energy_trend = 'decreasing'
+            
+            # Build evidence with more detail
+            evidence = [
+                f'Found {len(entries)} entries in the last 7 days',
+                f'Showed up {showed_up_count} out of {len(entries)} days ({showed_up_rate:.0f}%)',
+                f'Most common emotion: {top_emotion}',
+                f'Average energy: {avg_energy:.1f}/10 ({energy_trend})'
+            ]
+            
+            # Generate action based on patterns
+            action = 'Continue with your current journaling practice.'
+            if showed_up_rate < 70:
+                action = 'Focus on showing up consistently, even on difficult days.'
+            elif avg_energy < 5:
+                action = 'Consider what activities or habits help boost your energy.'
+            elif energy_trend == 'decreasing':
+                action = 'Your energy has been decreasing - prioritize rest and recovery.'
             
             fallback_parsed = {
                 'verdict': f'I notice you\'ve been journaling regularly ({len(entries)} entries in the last week).',
-                'evidence': [
-                    f'Found {len(entries)} entries in the last 7 days',
-                    f'Showed up {showed_up_count} out of {len(entries)} days',
-                    f'Most common emotion: {top_emotion}'
-                ],
-                'action': 'Continue with your current journaling practice.',
+                'evidence': evidence,
+                'action': action,
                 'confidence_estimate': 70
             }
         else:
@@ -389,9 +501,15 @@ Provide one neutral observation and one micro-action based on the patterns above
             }
         
         # Start LLM in background (non-blocking)
-        global _llm_processing
         llm_started = False
-        if not _llm_processing:
+        
+        # Log the state before deciding whether to start LLM
+        logger.debug(f"[Insight] LLM start check: _llm_processing={_llm_processing}, model_loaded={model_loaded}, force_refresh={force_refresh}")
+        
+        # Check if LLM is already processing and model is loaded
+        # model_loaded was checked earlier at the start of the function
+        # If force_refresh, we already reset _llm_processing above
+        if not _llm_processing and model_loaded:
             import threading
             _llm_processing = True
             llm_started = True
@@ -402,9 +520,21 @@ Provide one neutral observation and one micro-action based on the patterns above
                     import time
                     start_time = time.time()
                     logger.info("[Insight] 🤖 Starting background LLM call...")
-                    logger.info(f"[Insight] 📝 Prompt length: {len(full_prompt)} chars, max_tokens: 200")
+                    logger.info(f"[Insight] 📝 Prompt length: {len(full_prompt)} chars, max_tokens: 256")
                     
-                    response = call_local_llm(full_prompt, max_tokens=200, temp=0.2)  # Reduced tokens for speed
+                    # Use optimized token limits and system instruction for Gemini
+                    from .llm_adapter import _using_gemini, _call_gemini
+                    if _using_gemini():
+                        # Gemini with system instruction (token optimized)
+                        response = _call_gemini(
+                            prompt=user_prompt if _using_gemini() else full_prompt,
+                            max_tokens=256,  # Optimized: 256 tokens for insights
+                            temp=0.2,
+                            system_instruction=system_instruction if _using_gemini() else None
+                        )
+                    else:
+                        # Local model (unchanged)
+                        response = call_local_llm(full_prompt, max_tokens=200, temp=0.2)
                     
                     elapsed = time.time() - start_time
                     logger.info(f"[Insight] ⏱️ LLM call completed in {elapsed:.1f} seconds")
@@ -440,7 +570,12 @@ Provide one neutral observation and one micro-action based on the patterns above
             llm_thread.start()
             logger.info("[Insight] LLM processing started in background, returning fallback immediately")
         else:
-            logger.debug("[Insight] LLM already processing, returning fallback")
+            if _llm_processing:
+                logger.debug("[Insight] LLM already processing, returning fallback")
+            elif not model_loaded:
+                logger.warning("[Insight] Model not loaded, cannot start LLM task. Returning fallback only.")
+            else:
+                logger.warning("[Insight] Unknown reason for not starting LLM task")
         
         # Return fallback immediately (fast response)
         # Mark as fallback so frontend knows to poll for LLM result
@@ -677,18 +812,29 @@ def _parse_llm_response(response: str) -> dict:
     if not result['verdict']:
         # Try to find first sentence or meaningful text
         first_line = response.split('\n')[0].strip()
-        if len(first_line) > 20:
-            result['verdict'] = first_line[:200]
+        if len(first_line) > 10:  # Lower threshold
+            result['verdict'] = first_line[:300]  # Longer limit
         else:
             # Look for any sentence in the response
             sentences = response.split('.')
             for sent in sentences:
                 sent = sent.strip()
-                if len(sent) > 20 and not sent.startswith('VERDICT') and not sent.startswith('EVIDENCE'):
-                    result['verdict'] = sent[:200]
+                if len(sent) > 10 and not sent.startswith('VERDICT') and not sent.startswith('EVIDENCE'):
+                    result['verdict'] = sent[:300]
                     break
             if not result['verdict']:
-                result['verdict'] = response[:200] if len(response) > 20 else 'Unable to generate insight at this time.'
+                # Last resort: use first 300 chars of response
+                result['verdict'] = response[:300].strip() if len(response.strip()) > 10 else 'Unable to generate insight at this time.'
+    
+    # If verdict was found but seems incomplete (ends mid-sentence), try to complete it
+    if result['verdict'] and len(result['verdict']) < 50 and not result['verdict'].endswith(('.', '!', '?')):
+        # Look for more content in the response
+        remaining = response[len(result['verdict']):].strip()
+        if remaining:
+            # Try to get the next sentence or meaningful chunk
+            next_sent = remaining.split('.')[0].strip()
+            if len(next_sent) > 10:
+                result['verdict'] = result['verdict'] + ' ' + next_sent[:200]
     
     # Calculate confidence if not provided
     if result['confidence_estimate'] == 0:
