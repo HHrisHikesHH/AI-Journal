@@ -525,10 +525,10 @@ def insight_on_open(request):
                     # Use optimized token limits and system instruction for Gemini
                     from .llm_adapter import _using_gemini, _call_gemini
                     if _using_gemini():
-                        # Gemini with system instruction (token optimized)
+                        # Gemini with system instruction (token optimized for 2-3 sentence responses)
                         response = _call_gemini(
                             prompt=user_prompt if _using_gemini() else full_prompt,
-                            max_tokens=256,  # Optimized: 256 tokens for insights
+                            max_tokens=384,  # Optimized: 384 tokens for 2-3 sentence insights
                             temp=0.2,
                             system_instruction=system_instruction if _using_gemini() else None
                         )

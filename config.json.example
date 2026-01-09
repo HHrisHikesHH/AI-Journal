@@ -11,7 +11,9 @@
     "llm_model_type": "llama",
     "llm_max_tokens": 256,
     "llm_temperature": 0.2,
-    "_comment_old_model": "Previous model: mistral-7b-instruct-v0.2.Q4_K_M.gguf (4.1GB, slower but higher quality)"
+    "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE",
+    "_comment_old_model": "Previous model: mistral-7b-instruct-v0.2.Q4_K_M.gguf (4.1GB, slower but higher quality)",
+    "_comment_gemini": "Get your API key from https://aistudio.google.com/ - Replace YOUR_GEMINI_API_KEY_HERE with your actual key"
   },
   "habits": {
     "exercise": "Physical activity or movement",

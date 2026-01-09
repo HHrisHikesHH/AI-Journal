@@ -1,53 +1,45 @@
-# Personal RAG Journal & Coaching App
+# Personal RAG Journal & AI Coaching App
 
-A local-first, private journaling application with AI-powered coaching insights. All data stays on your device, synced via Git. No cloud APIs, no external services.
+A private, local-first journaling application with AI-powered coaching insights. Your data stays on your device, and the app uses Google's Gemini AI to provide thoughtful, supportive insights about your patterns and habits.
 
-## Features
+## 🚀 Quick Start (For Everyone)
 
-- **Quick Entry Shortcuts**: Desktop keyboard shortcut `Ctrl+K` to open a quick-entry modal
-- **One-action Daily + Weekly Coaching**: Daily insight on app open, weekly summaries
-- **Showed_up + Streaks + Action Items**: Track showed_up, visualize streaks, manage action items from coach suggestions
-- **Proactive Coaching**: Insight on app open (rate-limited to once per calendar day)
-- **Search + Filter**: Semantic search with emotion, habit, and date filters
-- **Export & Backup**: Export entries as CSV/JSON, automatic backups on stop
-- **Mobile PWA-ready**: Single-page React app optimized for mobile
+### Step 1: Get Your Gemini API Key
 
-## Prerequisites
+1. Go to [Google AI Studio](https://aistudio.google.com/)
+2. Sign in with your Google account
+3. Click "Get API Key" and create a new key
+4. Copy your API key (it looks like: `AIzaSy...`)
 
-- **Python 3.11** (exact version required)
-- **pip** (Python package manager)
-- **Node.js 18+** and npm
-- **Git**
-- **8GB+ RAM** (for local LLM)
-- **A local LLM model file** (see Setup below)
+### Step 2: Set Up the App
 
-## First-Start Checklist
+1. **Open Terminal** (on Mac/Linux) or **Command Prompt** (on Windows)
 
-Before running `./start.sh`, complete these 5 steps:
+2. **Navigate to the project folder:**
+   ```bash
+   cd /path/to/rag_project
+   ```
 
-### Step 1: Set Up Private Git Repository
+3. **Make scripts executable** (Mac/Linux only):
+   ```bash
+   chmod +x start.sh stop.sh
+   ```
 
-```bash
-# Initialize Git repository (if not already initialized)
-git init
+4. **Edit the configuration file:**
+   - Open `config.json` in any text editor
+   - Find the line: `"gemini_api_key": "YOUR_API_KEY_HERE"`
+   - Replace `YOUR_API_KEY_HERE` with your actual API key from Step 1
+   - Save the file
 
-# Add your private Git remote
-git remote add origin <YOUR_PRIVATE_GIT_REPO_URL>
+### Step 3: Install Dependencies
 
-# Verify remote is set
-git remote get-url origin
-```
-
-**Important**: The scripts will check for a Git remote and fail with clear instructions if `origin` is not configured.
-
-### Step 2: Install Dependencies
-
+**On Mac/Linux:**
 ```bash
 # Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 
-# Install Python dependencies
+# Install Python packages
 pip install --upgrade pip
 pip install -r requirements.txt
 
@@ -57,305 +49,229 @@ npm install
 cd ..
 ```
 
-### Step 3: Download LLM Model
+**On Windows:**
+```cmd
+# Create virtual environment
+python -m venv venv
+venv\Scripts\activate
 
-You must download a local LLM model. The app will check for the model and exit with clear instructions if missing.
+# Install Python packages
+pip install --upgrade pip
+pip install -r requirements.txt
 
-**Expected path**: `local/models/phi-2.Q4_K_M.gguf` (or path specified in `config.json`)
-
-**Quick Download (Recommended)**: Use the download script:
-
-```bash
-./scripts/download_fast_model.sh
+# Install frontend dependencies
+cd frontend
+npm install
+cd ..
 ```
 
-This will let you choose from:
-1. **TinyLlama 1.1B** (~700MB) - FASTEST, good for simple patterns
-2. **Phi-2 2.7B** (~1.6GB) - Fast, better quality  
-3. **Qwen2.5-1.5B** (~1GB) - Good balance
+### Step 4: Start the App
 
-**Manual Download** (if script doesn't work):
-
-```bash
-# Create models directory
-mkdir -p local/models
-
-# Download TinyLlama 1.1B (recommended for speed)
-cd local/models
-wget https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf -O phi-2.Q4_K_M.gguf
-cd ../..
-```
-
-**Update `config.json`** to point to your model (already configured for Phi-2):
-
-```json
-{
-  "models": {
-    "llm_model_path": "local/models/phi-2.Q4_K_M.gguf"
-  }
-}
-```
-
-**Note**: The app is optimized for speed with:
-- 8 CPU threads (utilizes more cores)
-- Reduced context window (1024 tokens)
-- Batch processing enabled
-- Memory mapping for faster loading
-
-### Step 4: Verify Configuration
-
-Check that `config.json` exists and contains:
-- `emotions`: List of allowed emotions
-- `habits`: Object with habit definitions
-- `models.llm_model_path`: Path to your LLM model file
-
-### Step 5: Run Start Script
-
+**On Mac/Linux:**
 ```bash
 ./start.sh
 ```
 
-The script will:
-1. Check prerequisites
-2. Pull latest entries from Git (`git pull --rebase`)
-3. Rebuild FAISS index
-4. Start Django backend on port 8000
-5. Start React frontend on port 3000
-6. Generate weekly summary (if needed)
-
-## Usage
-
-### Starting the App
-
-```bash
-./start.sh
+**On Windows:**
+```cmd
+start.sh
 ```
 
-Access the app at:
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000/api
+The app will:
+- Start the backend server on http://localhost:8000
+- Start the frontend on http://localhost:3000
+- Open automatically in your browser
 
-### Stopping the App
+### Step 5: Use the App
 
+1. **Open your browser** and go to: http://localhost:3000
+2. **Create your first entry:**
+   - Click "New Entry" or press `Ctrl+K` (or `Cmd+K` on Mac)
+   - Select your emotion
+   - Rate your energy (1-10)
+   - Toggle "Showed Up" if you completed your daily practice
+   - Add a brief note (required, max 200 characters)
+   - Optionally add a longer reflection
+   - Click "Save Entry"
+
+3. **View your daily insight:**
+   - The app shows a daily AI-generated insight when you open it
+   - This updates once per day automatically
+
+4. **Ask questions:**
+   - Use the "Seeking Guidance" section to ask questions about your patterns
+   - Example: "What patterns do you notice in my energy levels?"
+
+### Step 6: Stop the App
+
+**On Mac/Linux:**
 ```bash
 ./stop.sh
 ```
 
-The script will:
-1. Stop Django and React servers
-2. Create timestamped backup of `entries/` to `backups/`
-3. Commit new entries to Git
-4. Push to remote repository
-
-### Quick Entry (Ctrl+K)
-
-Press `Ctrl+K` (or `Cmd+K` on Mac) to open the quick-entry modal. This allows you to:
-- Select an emotion (required)
-- Toggle "showed_up" (required)
-- Toggle habits (configurable from backend)
-- Enter brief reflection (max 200 chars, required)
-- Enter longer reflection (optional)
-
-### Daily Insight
-
-On app open, you'll see a daily insight card with:
-- One neutral observation
-- Evidence bullets with source filenames
-- One micro-action
-- Confidence estimate
-
-This is rate-limited to once per calendar day.
-
-### Weekly Summary
-
-Weekly summaries are automatically generated and saved to:
-`local/summaries/weekly_summary_YYYY-MM-DD.txt`
-
-The summary includes:
-- Verdict (one sentence)
-- Evidence bullets with source filenames
-- Action (one small action)
-- Confidence estimate
-
-## API Endpoints
-
-### Entry Management
-
-- `POST /api/entry/` - Create a new entry
-  - Required: `emotion`, `energy`, `showed_up`, `habits`, `free_text` (<=200 chars)
-  - Optional: `goals`, `long_reflection`
-  
-- `GET /api/entries/?days=7` - Get recent entries
-
-### Coaching & Insights
-
-- `GET /api/insight/on_open` - Get daily insight (rate-limited)
-- `POST /api/query/` - Query the RAG system
-  - Body: `{"query": "your question"}`
-  - Returns: `{answer, sources, confidence_estimate, structured}`
-
-### Search & Export
-
-- `GET /api/search?q=text&emotion=content&habit=exercise&from=2024-01-01&to=2024-01-31` - Search entries
-- `GET /api/export?format=csv|json` - Export all entries
-
-### Action Items
-
-- `POST /api/action/` - Create action item from coach suggestion
-- `GET /api/actions/?completed=true|false` - Get action items
-- `POST /api/action/<id>/` - Update action item
-- `DELETE /api/action/<id>/delete/` - Delete action item
-
-### Index Management
-
-- `POST /api/rebuild_index/` - Rebuild FAISS index from all entries
-
-## Configuration
-
-Edit `config.json` to customize:
-
-- **Emotions**: Allowed emotion choices (exact list: `["content","anxious","sad","angry","motivated","tired","calm","stressed"]`)
-- **Habits**: Configurable habits to track
-- **Goals**: User goals for alignment tracking
-- **LLM Model**: Path to local LLM model file
-- **LLM Parameters**: `max_tokens`, `temperature`
-
-## Data Storage
-
-- **Entries**: `entries/YYYY-MM-DDTHH-MM-SSZ__<uuid>.json`
-- **FAISS Index**: `local/embeddings/faiss_index.bin` (not in Git)
-- **Embeddings Cache**: `local/embeddings/` (not in Git)
-- **Weekly Summaries**: `local/summaries/weekly_summary_YYYY-MM-DD.txt`
-- **Action Items**: `local/action_items.json`
-- **Backups**: `backups/entries_backup_<timestamp>.tar.gz`
-
-## Git Sync
-
-The app uses Git for synchronization:
-
-- **On Start**: `git pull --rebase` (with conflict-safe behavior)
-- **On Stop**: `git add entries/`, `git commit -m "auto: entries"`, `git push`
-
-**Important**: 
-- Only `entries/` files are committed
-- `local/` directory is ignored (see `.gitignore`)
-- Scripts check for Git remote and fail gracefully if not configured
-
-### Resolving Git Conflicts
-
-If conflicts occur during `git pull --rebase`:
-
-```bash
-# Check status
-git status
-
-# Resolve conflicts manually
-# Edit conflicted files, then:
-git add entries/
-git rebase --continue
-
-# Or abort and start fresh
-git rebase --abort
+**On Windows:**
+```cmd
+stop.sh
 ```
 
-## Running Tests
+Or simply press `Ctrl+C` in the terminal where the app is running.
 
-```bash
-# Activate virtual environment
-source venv/bin/activate
-
-# Run tests
-cd backend
-python manage.py test ../tests
-```
-
-Test files:
-- `tests/test_api.py` - API endpoint tests
-  - `test_entry_create` - Entry creation and file persistence
-  - `test_rebuild_index` - Index rebuild and file creation
-  - `test_query_basic` - Basic query functionality
-
-## Troubleshooting
-
-### Model File Not Found
-
-If you see: "ERROR: LLM model file not found"
-
-1. Check that the model file exists at the path in `config.json`
-2. Verify the path is relative to project root
-3. Download the model if missing (see Step 3 in First-Start Checklist)
-
-### Git Remote Not Configured
-
-If you see: "Git remote 'origin' is not configured"
-
-```bash
-git remote add origin <YOUR_PRIVATE_GIT_REPO_URL>
-git push -u origin main
-```
-
-### Port Already in Use
-
-If ports 8000 or 3000 are in use:
-
-```bash
-# Kill processes on ports
-lsof -ti:8000 | xargs kill -9
-lsof -ti:3000 | xargs kill -9
-
-# Or use the start script (it handles this automatically)
-./start.sh
-```
-
-### Import Errors
-
-If you see import errors:
-
-```bash
-# Reinstall dependencies
-pip install -r requirements.txt --force-reinstall
-
-# Check Python version (must be 3.11)
-python3 --version
-```
-
-## Project Structure
+## 📁 Project Structure
 
 ```
-personal-rag/
-├── backend/              # Django backend
-│   ├── api/              # API app
-│   │   ├── views.py      # API endpoints
-│   │   ├── rag_system.py # RAG implementation
-│   │   ├── llm_adapter.py # LLM adapter
-│   │   └── action_items.py # Action items management
-│   ├── journal_api/      # Django project settings
-│   └── prompts/          # Prompt templates
+rag_project/
+├── backend/              # Python backend (Django)
+│   ├── api/              # API endpoints and logic
+│   ├── journal_api/      # Django settings
+│   └── prompts/          # AI prompt templates
 ├── frontend/             # React frontend
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── QuickEntryModal.js
-│   │   │   ├── InsightCard.js
-│   │   │   ├── HistoryView.js
-│   │   │   └── QueryInterface.js
-│   │   └── App.js
-│   └── package.json
-├── entries/              # Journal entries (JSON files)
-├── local/                # Local data (not in Git)
-│   ├── models/           # LLM model files
-│   ├── embeddings/       # FAISS index and cache
-│   └── summaries/       # Weekly summaries
+│   │   ├── components/   # React components
+│   │   └── App.js        # Main app component
+│   └── package.json      # Frontend dependencies
+├── entries/              # Your journal entries (JSON files)
+├── local/                # Local data (not synced)
+│   ├── models/           # AI model files (if using local model)
+│   ├── embeddings/       # Search index
+│   └── summaries/        # Weekly/monthly summaries
+├── logs/                 # Application logs
 ├── scripts/              # Utility scripts
-│   ├── git_sync.py       # Git synchronization
-│   ├── weekly_summary.py # Weekly summary generation
-│   └── derive_entry.py   # Entry processing
-├── tests/                # Test files
+├── config.json           # Configuration file (EDIT THIS!)
 ├── start.sh              # Start script
 ├── stop.sh               # Stop script
-├── config.json           # Configuration
 └── requirements.txt      # Python dependencies
 ```
 
-## License
+## ⚙️ Configuration
+
+Edit `config.json` to customize:
+
+- **Emotions**: List of emotions you can select
+- **Habits**: Habits you want to track
+- **Goals**: Your personal goals
+- **Gemini API Key**: Your Google Gemini API key (required)
+
+Example:
+```json
+{
+  "models": {
+    "gemini_api_key": "AIzaSy...your-key-here..."
+  },
+  "emotions": ["content", "anxious", "sad", "happy", "tired"],
+  "habits": {
+    "exercise": "Physical activity",
+    "meditation": "Meditation practice"
+  }
+}
+```
+
+## 💡 Features
+
+### Daily Insights
+- **Automatic insights** when you open the app
+- **AI-powered analysis** of your recent entries
+- **Gentle, supportive coaching** style
+- **Evidence-based observations** with source citations
+
+### Journal Entries
+- **Quick entry** with `Ctrl+K` (or `Cmd+K` on Mac)
+- **Track emotions, energy, and habits**
+- **Optional longer reflections**
+- **All data stored locally** on your device
+
+### Seeking Guidance
+- **Ask questions** about your patterns
+- **Semantic search** through your entries
+- **Contextual answers** based on your journal history
+- **Actionable suggestions**
+
+### Long-Term Context Management
+- **Automatic summarization** of older entries
+- **Smart context selection** (recent entries + relevant summaries)
+- **Token-optimized** for year-long usage
+- **Maintains relevance** without losing context
+
+## 🔧 Troubleshooting
+
+### "API Key Error" or "Gemini not working"
+- Check that your API key is correctly set in `config.json`
+- Make sure there are no extra spaces or quotes around the key
+- Verify your API key is active at [Google AI Studio](https://aistudio.google.com/)
+
+### "Port already in use"
+- The app uses ports 8000 (backend) and 3000 (frontend)
+- Close other applications using these ports
+- Or run: `lsof -ti:8000 | xargs kill -9` (Mac/Linux)
+
+### "Module not found" errors
+- Make sure you activated the virtual environment: `source venv/bin/activate`
+- Reinstall dependencies: `pip install -r requirements.txt`
+
+### App won't start
+- Check the logs in `logs/django.log` and `logs/react.log`
+- Make sure Python 3.11+ is installed: `python3 --version`
+- Make sure Node.js 18+ is installed: `node --version`
+
+### Responses are too short
+- The app is configured for 2-3 sentence responses
+- If responses seem incomplete, check your API key has sufficient quota
+- Try refreshing the insight or query
+
+## 📊 Data Management
+
+### Where Your Data Lives
+- **Entries**: `entries/` folder (JSON files)
+- **Summaries**: `local/summaries/` (auto-generated)
+- **Search Index**: `local/embeddings/` (auto-generated)
+
+### Backup Your Data
+Your entries are stored as JSON files in the `entries/` folder. To backup:
+1. Copy the entire `entries/` folder
+2. Or use Git to sync (if configured)
+
+### Export Data
+- Use the "Export" feature in the app
+- Or manually copy files from `entries/` folder
+
+## 🎯 Best Practices
+
+1. **Journal regularly** - Daily entries provide better insights
+2. **Be honest** - The AI is supportive and non-judgmental
+3. **Use "Showed Up"** - Track consistency in your habits
+4. **Review insights** - Check your daily insights to notice patterns
+5. **Ask questions** - Use "Seeking Guidance" to explore your patterns
+
+## 🔒 Privacy & Security
+
+- **All data stays local** - Your entries are stored on your device
+- **No cloud storage** - Unless you configure Git sync
+- **API calls** - Only your journal entries (not personal info) are sent to Gemini
+- **No tracking** - The app doesn't track or share your data
+
+## 📝 Token Optimization
+
+The app is optimized for long-term use:
+
+- **Smart summarization**: Older entries (>30 days) are automatically summarized
+- **Context limits**: Recent entries prioritized, summaries used for older data
+- **Efficient prompts**: System instructions separated for better token usage
+- **Response limits**: 2-3 sentence responses (384-512 tokens) for quality and cost control
+
+This means you can use the app for a year or more without running into token limits or high costs.
+
+## 🆘 Getting Help
+
+If you encounter issues:
+
+1. **Check the logs**: `logs/django.log` and `logs/react.log`
+2. **Verify configuration**: Make sure `config.json` is correct
+3. **Check dependencies**: Ensure all packages are installed
+4. **Restart the app**: Stop and start again
+
+## 📄 License
 
 Private use only. All data stays local.
+
+---
+
+**Made with care for your personal growth journey.** 🌱

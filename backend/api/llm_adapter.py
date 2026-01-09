@@ -245,8 +245,8 @@ def _call_gemini(prompt: str, max_tokens: int = 512, temp: float = 0.2, system_i
     logger.info(f"[LLM] Using Gemini (gemini-2.5-flash) with max_tokens={max_tokens}, temp={temp}")
     client = _get_gemini_client()
 
-    # Optimize token usage: be conservative with output
-    max_tokens = int(max_tokens) if max_tokens is not None else 256
+    # Optimize token usage: allow more tokens for 2-3 sentence responses
+    max_tokens = int(max_tokens) if max_tokens is not None else 384
     max_tokens = max(1, min(max_tokens, 512))  # Cap at 512 for cost control
 
     try:

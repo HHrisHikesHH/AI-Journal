@@ -428,7 +428,7 @@ class RAGSystem:
         self.summaries = self._load_summaries()
         
         # Add summaries to index (prefer summaries for old data)
-        # Only add summaries that are older than 30 days
+        # Strategy: Use summaries for data older than 30 days to save tokens
         from datetime import datetime, timedelta
         thirty_days_ago = datetime.now() - timedelta(days=30)
         
@@ -438,10 +438,11 @@ class RAGSystem:
             if end_date_str:
                 try:
                     end_date = datetime.fromisoformat(end_date_str).date()
-                    # Only index summaries for data older than 30 days
+                    # Only index summaries for data older than 30 days (token optimization)
                     if end_date < thirty_days_ago.date():
                         all_items.append(summary)
                         texts.append(self._get_summary_text(summary))
+                        logger.debug(f"[RAG] Added summary to index: {summary.get('_source_file', 'unknown')} (old data)")
                 except Exception:
                     # If date parsing fails, include it anyway
                     all_items.append(summary)
@@ -583,48 +584,73 @@ class RAGSystem:
             logger.info("[RAG] No relevant items found, using most recent entries")
             relevant_items = all_items[:k] if len(all_items) >= k else all_items
         
-        # Build context for LLM (handle both entries and summaries)
-        # Optimize: limit context size for token efficiency (max 1200 chars = ~300 tokens)
+        # Build context for LLM with intelligent summarization strategy
+        # Strategy: Prioritize recent entries, use summaries for older data
+        # Token optimization: max 1500 chars (~375 tokens) for better 2-3 sentence responses
+        from datetime import datetime, timedelta
+        seven_days_ago = datetime.now() - timedelta(days=7)
+        
         context_parts = []
-        max_context_chars = 1200
+        max_context_chars = 1500  # Increased slightly for 2-3 sentence responses
         current_length = 0
         
+        # Separate recent entries from older summaries
+        recent_entries = []
+        older_summaries = []
+        
         for item in relevant_items:
+            is_summary = item.get('_is_summary', False)
+            if is_summary:
+                older_summaries.append(item)
+            else:
+                # Check if entry is recent
+                try:
+                    entry_date = datetime.fromisoformat(item.get('timestamp', '').replace('Z', '+00:00')).date()
+                    if entry_date >= seven_days_ago.date():
+                        recent_entries.append(item)
+                    else:
+                        # Older entry - prefer summary if available
+                        older_summaries.append(item)
+                except:
+                    recent_entries.append(item)
+        
+        # Prioritize: recent entries first, then summaries (max 3 summaries to save tokens)
+        prioritized_items = recent_entries + older_summaries[:3]
+        
+        for item in prioritized_items:
             is_summary = item.get('_is_summary', False)
             item_text = ""
             
             if is_summary:
-                # Handle summary - concise format
+                # Handle summary - concise format (token optimized)
                 summary_type = item.get('_summary_type', 'unknown')
                 date_range = item.get('date_range', {})
                 summary_data = item.get('summary', {})
-                source_file = item.get('_source_file', 'unknown')
                 
-                item_text = f"{summary_type.capitalize()} Summary ({source_file}): {date_range.get('start', '')} to {date_range.get('end', '')}\n"
-                item_text += f"Verdict: {summary_data.get('verdict', 'N/A')[:100]}\n"
+                item_text = f"{summary_type.capitalize()} Summary ({date_range.get('start', '')} to {date_range.get('end', '')}): "
+                item_text += f"{summary_data.get('verdict', 'N/A')[:120]}"
                 evidence = summary_data.get('evidence', [])
                 if evidence:
-                    item_text += f"Evidence: {', '.join(evidence[:2])[:150]}\n"
-                item_text += f"Action: {summary_data.get('action', 'N/A')[:100]}"
+                    item_text += f" Evidence: {', '.join(evidence[:2])[:100]}"
             else:
                 # Handle entry - concise format for token optimization
                 entry_date = item.get('timestamp', '')[:10]  # YYYY-MM-DD
                 filename = f"{item.get('timestamp', '').replace(':', '-').split('.')[0]}Z__{item.get('id', '')}.json"
-                item_text = f"Entry {entry_date} ({filename}): Emotion: {item.get('emotion', 'N/A')}, Energy: {item.get('energy', 'N/A')}, Showed up: {item.get('showed_up', False)}"
+                item_text = f"Entry {entry_date} ({filename}): {item.get('emotion', 'N/A')}, Energy {item.get('energy', 'N/A')}/10"
+                if item.get('showed_up'):
+                    item_text += ", showed up"
                 if item.get('free_text'):
-                    item_text += f", Note: {item.get('free_text')[:80]}"
-                if item.get('long_reflection'):
-                    item_text += f", Reflection: {item.get('long_reflection')[:100]}"
+                    item_text += f", {item.get('free_text')[:100]}"
             
             # Only add if we haven't exceeded token limit
             if current_length + len(item_text) > max_context_chars:
-                logger.debug(f"[RAG] Context limit reached ({current_length} chars), truncating for token optimization")
+                logger.debug(f"[RAG] Context limit reached ({current_length} chars), stopping for token optimization")
                 break
             context_parts.append(item_text)
             current_length += len(item_text) + 1  # +1 for newline
         
         context = '\n'.join(context_parts)
-        logger.debug(f"[RAG] Context built: {len(context)} chars (~{len(context) // 4} tokens)")
+        logger.debug(f"[RAG] Context built: {len(context)} chars (~{len(context) // 4} tokens), {len(recent_entries)} recent entries, {len(older_summaries)} summaries")
         
         # Generate answer using LLM with token optimization
         try:
@@ -637,7 +663,7 @@ class RAGSystem:
                 if _using_gemini():
                     llm_response = _call_gemini(
                         prompt=user_prompt,
-                        max_tokens=384,  # Optimized: 384 tokens for queries
+                        max_tokens=512,  # Optimized: 512 tokens for 2-3 sentence query responses
                         temp=0.2,
                         system_instruction=system_instruction
                     )

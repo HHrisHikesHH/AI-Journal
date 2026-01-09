@@ -25,6 +25,7 @@ wheels/
 
 # Django
 *.log
+logs/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -67,4 +68,11 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+
+# Backups (removed feature)
+backups/
+
+# Configuration with sensitive data
+config.json
+# Use config.json.example as template
 

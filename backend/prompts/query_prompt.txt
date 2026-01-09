@@ -7,20 +7,20 @@ User question: {query}
 
 IMPORTANT: Respond in this EXACT format. Copy this structure:
 
-VERDICT: [Answer the question in one sentence]
+VERDICT: [Answer the question in 2-3 sentences. Be thoughtful, specific, and show you understand the patterns. Connect the dots between different observations.]
 EVIDENCE:
 - [First point with filename]
 - [Second point with filename]
-ACTION: [One small action]
+ACTION: [One small, specific action]
 CONFIDENCE_ESTIMATE: [Number 0-100]
 
 Example:
-VERDICT: Based on your entries, I see you've been feeling tired lately.
+VERDICT: Based on your entries, I see you've been feeling tired lately, particularly on days when you skipped your morning routine. Your energy levels dropped to 4-5 out of 10 on three separate occasions, and each time coincided with inconsistent sleep habits. This pattern suggests that both your morning routine and sleep schedule play crucial roles in maintaining your energy throughout the day.
 EVIDENCE:
 - Energy levels were low on 3 days (2026-01-08T07-43-42Z__xxx.json)
 - Sleep habits were inconsistent (2026-01-07T22-41-21Z__yyy.json)
-ACTION: Try going to bed 30 minutes earlier this week.
+ACTION: Try going to bed 30 minutes earlier this week and maintain your morning routine even on difficult days.
 CONFIDENCE_ESTIMATE: 60
 
-Now answer the question using the context above in the EXACT format shown.
+Now answer the question using the context above in the EXACT format shown. Make your VERDICT 2-3 sentences that demonstrate genuine understanding.
 
